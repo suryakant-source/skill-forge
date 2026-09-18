@@ -1,0 +1,44 @@
+# ========================
+# JAVA / SPRING BOOT
+# ========================
+target/
+*.class
+*.jar
+*.war
+.mvn/
+*.iml
+.idea/
+
+# ========================
+# NODE / REACT
+# ========================
+node_modules/
+dist/
+build/
+.expo/
+
+# ========================
+# ENVIRONMENT FILES
+# (Kabhi bhi GitHub pe push mat karo)
+# ========================
+.env
+.env.local
+.env.production
+application-local.properties
+
+# ========================
+# OS FILES
+# ========================
+.DS_Store
+Thumbs.db
+
+# ========================
+# VS CODE
+# ========================
+.vscode/settings.json
+
+# ========================
+# MEDIA / LEGACY ASSETS
+# ========================
+*.mp4
+.netlify
