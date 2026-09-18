@@ -27,6 +27,11 @@ build/
 application-local.properties
 
 # ========================
+# LOCAL DEVELOPMENT NOTES
+# ========================
+docs/database-setup.md
+
+# ========================
 # OS FILES
 # ========================
 .DS_Store
@@ -36,9 +41,3 @@ Thumbs.db
 # VS CODE
 # ========================
 .vscode/settings.json
-
-# ========================
-# MEDIA / LEGACY ASSETS
-# ========================
-*.mp4
-.netlify
