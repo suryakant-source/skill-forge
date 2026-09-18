@@ -8,6 +8,7 @@ import com.skillforge.backend.enums.ExperienceLevel;
 import com.skillforge.backend.enums.Role;
 import com.skillforge.backend.exception.BadRequestException;
 import com.skillforge.backend.exception.ResourceNotFoundException;
+import com.skillforge.backend.exception.UnauthorizedException;
 import com.skillforge.backend.exception.UserAlreadyExistsException;
 import com.skillforge.backend.repository.UserRepository;
 import com.skillforge.backend.security.JwtService;
@@ -97,6 +98,11 @@ public class AuthServiceImpl implements AuthService {
 
         User user = userRepository.findByEmail(request.getEmail().toLowerCase().trim())
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + request.getEmail()));
+
+        if (user.getIsActive() != null && !user.getIsActive()) {
+            log.warn("Login rejected: Account is deactivated for email {}", user.getEmail());
+            throw new UnauthorizedException("Your account has been deactivated. Please contact an administrator.");
+        }
 
         String token = jwtService.generateToken(user);
         log.info("User {} logged in successfully", user.getEmail());

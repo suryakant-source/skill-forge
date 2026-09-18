@@ -17,4 +17,5 @@ public interface UserService {
     void removeSkill(Long userId, Long skillId);
     List<UserResponse> getAllUsers();
     void deactivateUser(Long userId);
+    void activateUser(Long userId);
 }

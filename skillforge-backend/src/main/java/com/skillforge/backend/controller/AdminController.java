@@ -50,4 +50,15 @@ public class AdminController {
         userService.deactivateUser(userId);
         return ResponseEntity.ok(ApiResponse.success("User deactivated successfully", "User deactivated successfully"));
     }
+
+    /**
+     * Activate a user account by ID.
+     * PATCH /api/admin/users/{userId}/activate
+     */
+    @PatchMapping("/users/{userId}/activate")
+    public ResponseEntity<ApiResponse<String>> activateUser(@PathVariable Long userId) {
+        log.info("Endpoint called: PATCH /api/admin/users/{}/activate", userId);
+        userService.activateUser(userId);
+        return ResponseEntity.ok(ApiResponse.success("User activated successfully", "User activated successfully"));
+    }
 }

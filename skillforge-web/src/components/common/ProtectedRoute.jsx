@@ -2,6 +2,7 @@ import React from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import Loader from './Loader';
+import toast from 'react-hot-toast';
 
 /**
  * ============================================================================
@@ -84,6 +85,7 @@ export const AdminRoute = ({ children }) => {
   // 3. Must possess the ADMIN role
   const isAdmin = user?.role === 'ADMIN' || user?.role?.toUpperCase() === 'ROLE_ADMIN';
   if (!isAdmin) {
+    toast.error('Access denied. Admin privileges required.');
     return <Navigate to="/dashboard" replace />;
   }
 

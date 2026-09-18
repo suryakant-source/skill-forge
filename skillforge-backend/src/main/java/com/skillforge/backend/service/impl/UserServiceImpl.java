@@ -140,6 +140,16 @@ public class UserServiceImpl implements UserService {
         log.info("User account deactivated for ID: {}", userId);
     }
 
+    @Override
+    @Transactional
+    public void activateUser(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with ID: " + userId));
+        user.setIsActive(true);
+        userRepository.save(user);
+        log.info("User account activated for ID: {}", userId);
+    }
+
 
     private UserResponse mapToUserResponse(User user) {
         List<SkillResponse> skills = userSkillRepository.findByUserId(user.getId()).stream()
