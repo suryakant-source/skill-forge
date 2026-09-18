@@ -1,0 +1,599 @@
+{
+    "variable":  [
+                     {
+                         "key":  "baseUrl",
+                         "type":  "string",
+                         "value":  "http://localhost:8080/api"
+                     },
+                     {
+                         "key":  "authToken",
+                         "type":  "string",
+                         "value":  ""
+                     }
+                 ],
+    "info":  {
+                 "description":  "Complete REST API collection for SkillForge Learning \u0026 Career Tracker Backend",
+                 "name":  "SkillForge API",
+                 "schema":  "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+                 "_postman_id":  "a1b2c3d4-e5f6-7890-1234-56789abcdef0"
+             },
+    "item":  [
+                 {
+                     "name":  "Auth",
+                     "item":  [
+                                  {
+                                      "name":  "Signup (Register)",
+                                      "request":  {
+                                                      "url":  {
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "raw":  "{{baseUrl}}/auth/signup",
+                                                                  "path":  [
+                                                                               "auth",
+                                                                               "signup"
+                                                                           ]
+                                                              },
+                                                      "method":  "POST",
+                                                      "body":  {
+                                                                   "raw":  "{\\n  \"name\": \"Suryakant\",\\n  \"email\": \"sury@gmail.com\",\\n  \"password\": \"Pass@1234\",\\n  \"confirmPassword\": \"Pass@1234\"\\n}",
+                                                                   "mode":  "raw"
+                                                               },
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ]
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Login",
+                                      "request":  {
+                                                      "url":  {
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "raw":  "{{baseUrl}}/auth/login",
+                                                                  "path":  [
+                                                                               "auth",
+                                                                               "login"
+                                                                           ]
+                                                              },
+                                                      "method":  "POST",
+                                                      "body":  {
+                                                                   "raw":  "{\\n  \"email\": \"sury@gmail.com\",\\n  \"password\": \"Pass@1234\"\\n}",
+                                                                   "mode":  "raw"
+                                                               },
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ]
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Login - Invalid Password (401 Test)",
+                                      "request":  {
+                                                      "url":  {
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "raw":  "{{baseUrl}}/auth/login",
+                                                                  "path":  [
+                                                                               "auth",
+                                                                               "login"
+                                                                           ]
+                                                              },
+                                                      "method":  "POST",
+                                                      "body":  {
+                                                                   "raw":  "{\\n  \"email\": \"sury@gmail.com\",\\n  \"password\": \"WrongPass\"\\n}",
+                                                                   "mode":  "raw"
+                                                               },
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ]
+                                                  }
+                                  }
+                              ]
+                 },
+                 {
+                     "name":  "Users",
+                     "item":  [
+                                  {
+                                      "name":  "Get Current Profile",
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "url":  {
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "raw":  "{{baseUrl}}/users/profile",
+                                                                  "path":  [
+                                                                               "users",
+                                                                               "profile"
+                                                                           ]
+                                                              },
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Authorization",
+                                                                         "value":  "Bearer {{authToken}}"
+                                                                     }
+                                                                 ]
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Update Profile",
+                                      "request":  {
+                                                      "url":  {
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "raw":  "{{baseUrl}}/users/profile",
+                                                                  "path":  [
+                                                                               "users",
+                                                                               "profile"
+                                                                           ]
+                                                              },
+                                                      "method":  "PUT",
+                                                      "body":  {
+                                                                   "raw":  "{\\n  \"name\": \"Suryakant Kumar\",\\n  \"bio\": \"Passionate Backend Developer\",\\n  \"careerGoal\": \"Senior Software Engineer\",\\n  \"experienceLevel\": \"INTERMEDIATE\"\\n}",
+                                                                   "mode":  "raw"
+                                                               },
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Authorization",
+                                                                         "value":  "Bearer {{authToken}}"
+                                                                     },
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ]
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Add Skill",
+                                      "request":  {
+                                                      "url":  {
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "raw":  "{{baseUrl}}/users/skills",
+                                                                  "path":  [
+                                                                               "users",
+                                                                               "skills"
+                                                                           ]
+                                                              },
+                                                      "method":  "POST",
+                                                      "body":  {
+                                                                   "raw":  "{\\n  \"skillName\": \"Spring Boot\"\\n}",
+                                                                   "mode":  "raw"
+                                                               },
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Authorization",
+                                                                         "value":  "Bearer {{authToken}}"
+                                                                     },
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ]
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Delete Skill",
+                                      "request":  {
+                                                      "method":  "DELETE",
+                                                      "url":  {
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "raw":  "{{baseUrl}}/users/skills/1",
+                                                                  "path":  [
+                                                                               "users",
+                                                                               "skills",
+                                                                               "1"
+                                                                           ]
+                                                              },
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Authorization",
+                                                                         "value":  "Bearer {{authToken}}"
+                                                                     }
+                                                                 ]
+                                                  }
+                                  }
+                              ]
+                 },
+                 {
+                     "name":  "Goals",
+                     "item":  [
+                                  {
+                                      "name":  "Create Goal",
+                                      "request":  {
+                                                      "url":  {
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "raw":  "{{baseUrl}}/goals",
+                                                                  "path":  [
+                                                                               "goals"
+                                                                           ]
+                                                              },
+                                                      "method":  "POST",
+                                                      "body":  {
+                                                                   "raw":  "{\\n  \"title\": \"Learn Spring Boot\",\\n  \"description\": \"Master Spring Boot and Microservices\",\\n  \"category\": \"BACKEND\",\\n  \"targetDays\": 30,\\n  \"dailyHours\": 2\\n}",
+                                                                   "mode":  "raw"
+                                                               },
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Authorization",
+                                                                         "value":  "Bearer {{authToken}}"
+                                                                     },
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ]
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Get All Goals",
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "url":  {
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "raw":  "{{baseUrl}}/goals",
+                                                                  "path":  [
+                                                                               "goals"
+                                                                           ]
+                                                              },
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Authorization",
+                                                                         "value":  "Bearer {{authToken}}"
+                                                                     }
+                                                                 ]
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Get Goal By ID",
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "url":  {
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "raw":  "{{baseUrl}}/goals/1",
+                                                                  "path":  [
+                                                                               "goals",
+                                                                               "1"
+                                                                           ]
+                                                              },
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Authorization",
+                                                                         "value":  "Bearer {{authToken}}"
+                                                                     }
+                                                                 ]
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Update Goal",
+                                      "request":  {
+                                                      "url":  {
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "raw":  "{{baseUrl}}/goals/1",
+                                                                  "path":  [
+                                                                               "goals",
+                                                                               "1"
+                                                                           ]
+                                                              },
+                                                      "method":  "PUT",
+                                                      "body":  {
+                                                                   "raw":  "{\\n  \"title\": \"Master Spring Boot 3\",\\n  \"description\": \"Advanced Backend with Spring Security\",\\n  \"category\": \"BACKEND\",\\n  \"targetDays\": 45,\\n  \"dailyHours\": 3,\\n  \"isCompleted\": false\\n}",
+                                                                   "mode":  "raw"
+                                                               },
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Authorization",
+                                                                         "value":  "Bearer {{authToken}}"
+                                                                     },
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ]
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Delete Goal",
+                                      "request":  {
+                                                      "method":  "DELETE",
+                                                      "url":  {
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "raw":  "{{baseUrl}}/goals/1",
+                                                                  "path":  [
+                                                                               "goals",
+                                                                               "1"
+                                                                           ]
+                                                              },
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Authorization",
+                                                                         "value":  "Bearer {{authToken}}"
+                                                                     }
+                                                                 ]
+                                                  }
+                                  }
+                              ]
+                 },
+                 {
+                     "name":  "Tasks",
+                     "item":  [
+                                  {
+                                      "name":  "Create Task under Goal",
+                                      "request":  {
+                                                      "url":  {
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "raw":  "{{baseUrl}}/goals/1/tasks",
+                                                                  "path":  [
+                                                                               "goals",
+                                                                               "1",
+                                                                               "tasks"
+                                                                           ]
+                                                              },
+                                                      "method":  "POST",
+                                                      "body":  {
+                                                                   "raw":  "{\\n  \"title\": \"Setup Spring Security\",\\n  \"description\": \"Configure JWT Filter and PasswordEncoder\"\\n}",
+                                                                   "mode":  "raw"
+                                                               },
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Authorization",
+                                                                         "value":  "Bearer {{authToken}}"
+                                                                     },
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ]
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Get Tasks by Goal",
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "url":  {
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "raw":  "{{baseUrl}}/goals/1/tasks",
+                                                                  "path":  [
+                                                                               "goals",
+                                                                               "1",
+                                                                               "tasks"
+                                                                           ]
+                                                              },
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Authorization",
+                                                                         "value":  "Bearer {{authToken}}"
+                                                                     }
+                                                                 ]
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Update Task",
+                                      "request":  {
+                                                      "url":  {
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "raw":  "{{baseUrl}}/tasks/1",
+                                                                  "path":  [
+                                                                               "tasks",
+                                                                               "1"
+                                                                           ]
+                                                              },
+                                                      "method":  "PUT",
+                                                      "body":  {
+                                                                   "raw":  "{\\n  \"title\": \"Setup Spring Security and JWT\",\\n  \"description\": \"Configure JWT Filter, AuthEntryPoint, and SecurityConfig\",\\n  \"status\": \"IN_PROGRESS\"\\n}",
+                                                                   "mode":  "raw"
+                                                               },
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Authorization",
+                                                                         "value":  "Bearer {{authToken}}"
+                                                                     },
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ]
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Update Task Status",
+                                      "request":  {
+                                                      "url":  {
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "raw":  "{{baseUrl}}/tasks/1/status",
+                                                                  "path":  [
+                                                                               "tasks",
+                                                                               "1",
+                                                                               "status"
+                                                                           ]
+                                                              },
+                                                      "method":  "PATCH",
+                                                      "body":  {
+                                                                   "raw":  "{\\n  \"status\": \"COMPLETED\"\\n}",
+                                                                   "mode":  "raw"
+                                                               },
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Authorization",
+                                                                         "value":  "Bearer {{authToken}}"
+                                                                     },
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ]
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Delete Task",
+                                      "request":  {
+                                                      "method":  "DELETE",
+                                                      "url":  {
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "raw":  "{{baseUrl}}/tasks/1",
+                                                                  "path":  [
+                                                                               "tasks",
+                                                                               "1"
+                                                                           ]
+                                                              },
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Authorization",
+                                                                         "value":  "Bearer {{authToken}}"
+                                                                     }
+                                                                 ]
+                                                  }
+                                  }
+                              ]
+                 },
+                 {
+                     "name":  "Dashboard",
+                     "item":  [
+                                  {
+                                      "name":  "Get Dashboard Stats",
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "url":  {
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "raw":  "{{baseUrl}}/dashboard/stats",
+                                                                  "path":  [
+                                                                               "dashboard",
+                                                                               "stats"
+                                                                           ]
+                                                              },
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Authorization",
+                                                                         "value":  "Bearer {{authToken}}"
+                                                                     }
+                                                                 ]
+                                                  }
+                                  }
+                              ]
+                 },
+                 {
+                     "name":  "AI",
+                     "item":  [
+                                  {
+                                      "name":  "Get AI Recommendation",
+                                      "request":  {
+                                                      "url":  {
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "raw":  "{{baseUrl}}/ai/recommend",
+                                                                  "path":  [
+                                                                               "ai",
+                                                                               "recommend"
+                                                                           ]
+                                                              },
+                                                      "method":  "POST",
+                                                      "body":  {
+                                                                   "raw":  "{\\n  \"query\": \"What are the recommended topics for a beginner to become a job-ready backend engineer?\"\\n}",
+                                                                   "mode":  "raw"
+                                                               },
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Authorization",
+                                                                         "value":  "Bearer {{authToken}}"
+                                                                     },
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ]
+                                                  }
+                                  }
+                              ]
+                 },
+                 {
+                     "name":  "Admin",
+                     "item":  [
+                                  {
+                                      "name":  "Get All Users (Admin Only)",
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "url":  {
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "raw":  "{{baseUrl}}/admin/users",
+                                                                  "path":  [
+                                                                               "admin",
+                                                                               "users"
+                                                                           ]
+                                                              },
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Authorization",
+                                                                         "value":  "Bearer {{authToken}}"
+                                                                     }
+                                                                 ]
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Deactivate User (Admin Only)",
+                                      "request":  {
+                                                      "method":  "PATCH",
+                                                      "url":  {
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "raw":  "{{baseUrl}}/admin/users/1/deactivate",
+                                                                  "path":  [
+                                                                               "admin",
+                                                                               "users",
+                                                                               "1",
+                                                                               "deactivate"
+                                                                           ]
+                                                              },
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Authorization",
+                                                                         "value":  "Bearer {{authToken}}"
+                                                                     }
+                                                                 ]
+                                                  }
+                                  }
+                              ]
+                 }
+             ]
+}
