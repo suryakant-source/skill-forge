@@ -1,0 +1,112 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    background-color: #0F0F1A;
+    color: #F7FAFC;
+    font-family: 'Inter', sans-serif;
+  }
+
+  /* Custom dark scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #0F0F1A;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #2D3748;
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #4A5568;
+  }
+}
+
+@layer components {
+  /* Glassmorphic Cards */
+  .glass-card {
+    background: rgba(26, 26, 46, 0.7);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 0.75rem;
+  }
+
+  .glass-card-hover {
+    background: rgba(26, 26, 46, 0.7);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 0.75rem;
+    transition: all 0.2s ease-in-out;
+  }
+
+  .glass-card-hover:hover {
+    border-color: rgba(108, 99, 255, 0.4);
+    transform: translateY(-2px);
+    box-shadow: 0 10px 25px -5px rgba(108, 99, 255, 0.2);
+  }
+
+  /* Gradient Buttons */
+  .gradient-btn {
+    background: linear-gradient(135deg, #6C63FF 0%, #3ECFCF 100%);
+    color: #ffffff;
+    font-weight: 600;
+    border-radius: 0.5rem;
+    padding: 0.625rem 1.25rem;
+    transition: all 0.2s ease-in-out;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .gradient-btn:hover {
+    opacity: 0.95;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 14px rgba(108, 99, 255, 0.35);
+  }
+
+  .gradient-btn-outline {
+    background: transparent;
+    color: #6C63FF;
+    border: 1px solid #6C63FF;
+    font-weight: 600;
+    border-radius: 0.5rem;
+    padding: 0.625rem 1.25rem;
+    transition: all 0.2s ease-in-out;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .gradient-btn-outline:hover {
+    background: rgba(108, 99, 255, 0.1);
+    border-color: #3ECFCF;
+    color: #3ECFCF;
+  }
+
+  /* Form Input Styling */
+  .input-field {
+    width: 100%;
+    background-color: #1A1A2E;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: #F7FAFC;
+    border-radius: 0.5rem;
+    padding: 0.625rem 0.875rem;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+
+  .input-field:focus {
+    border-color: #6C63FF;
+    box-shadow: 0 0 0 2px rgba(108, 99, 255, 0.25);
+  }
+
+  .input-field::placeholder {
+    color: #718096;
+  }
+}
