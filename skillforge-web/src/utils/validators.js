@@ -1,10 +1,10 @@
-export const isValidEmail = (email) => {
+﻿export const isValidEmail = (email) => {
   const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return regex.test(String(email).toLowerCase());
 };
 
 export const isValidPassword = (password) => {
-  return typeof password === 'string' && password.length >= 6;
+  return typeof password === 'string' && password.length >= 8 && /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(password);
 };
 
 export const validateSignup = ({ name, email, password, confirmPassword }) => {
@@ -16,7 +16,7 @@ export const validateSignup = ({ name, email, password, confirmPassword }) => {
     errors.email = 'Valid email address is required';
   }
   if (!password || !isValidPassword(password)) {
-    errors.password = 'Password must be at least 6 characters';
+    errors.password = 'Password must be at least 8 characters with uppercase, lowercase, and number';
   }
   if (password !== confirmPassword) {
     errors.confirmPassword = 'Passwords do not match';
@@ -40,3 +40,4 @@ export const validateLogin = ({ email, password }) => {
     errors,
   };
 };
+
