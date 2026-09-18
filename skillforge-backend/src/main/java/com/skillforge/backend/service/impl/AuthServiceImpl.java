@@ -12,14 +12,21 @@ import com.skillforge.backend.exception.UserAlreadyExistsException;
 import com.skillforge.backend.repository.UserRepository;
 import com.skillforge.backend.security.JwtService;
 import com.skillforge.backend.service.AuthService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * Implementation of AuthService managing signup, password hashing, and token issuance.
+ */
 @Service
 public class AuthServiceImpl implements AuthService {
+
+    private static final Logger log = LoggerFactory.getLogger(AuthServiceImpl.class);
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
@@ -41,11 +48,15 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public AuthResponse signup(SignupRequest request) {
+        log.info("Processing signup for email: {}", request.getEmail());
+
         if (!request.getPassword().equals(request.getConfirmPassword())) {
+            log.error("Signup failed: Passwords do not match for email {}", request.getEmail());
             throw new BadRequestException("Passwords do not match");
         }
 
         if (userRepository.existsByEmail(request.getEmail())) {
+            log.warn("Signup conflict: Email {} already registered", request.getEmail());
             throw new UserAlreadyExistsException("Email is already registered: " + request.getEmail());
         }
 
@@ -61,6 +72,8 @@ public class AuthServiceImpl implements AuthService {
         User savedUser = userRepository.save(user);
         String token = jwtService.generateToken(savedUser);
 
+        log.info("User registered successfully with ID: {}", savedUser.getId());
+
         return AuthResponse.builder()
                 .token(token)
                 .tokenType("Bearer")
@@ -73,6 +86,8 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public AuthResponse login(LoginRequest request) {
+        log.info("Authenticating user with email: {}", request.getEmail());
+
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
                         request.getEmail().toLowerCase().trim(),
@@ -84,6 +99,7 @@ public class AuthServiceImpl implements AuthService {
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + request.getEmail()));
 
         String token = jwtService.generateToken(user);
+        log.info("User {} logged in successfully", user.getEmail());
 
         return AuthResponse.builder()
                 .token(token)

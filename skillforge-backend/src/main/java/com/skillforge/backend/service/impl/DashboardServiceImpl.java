@@ -9,13 +9,20 @@ import com.skillforge.backend.repository.GoalRepository;
 import com.skillforge.backend.repository.TaskRepository;
 import com.skillforge.backend.repository.UserRepository;
 import com.skillforge.backend.service.DashboardService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.stream.Collectors;
 
+/**
+ * Implementation of DashboardService calculating goal & task statistics and overall progress average.
+ */
 @Service
 public class DashboardServiceImpl implements DashboardService {
+
+    private static final Logger log = LoggerFactory.getLogger(DashboardServiceImpl.class);
 
     private final UserRepository userRepository;
     private final GoalRepository goalRepository;
@@ -28,11 +35,22 @@ public class DashboardServiceImpl implements DashboardService {
     }
 
     @Override
-    public DashboardResponse getDashboardMetrics(String userEmail) {
-        User user = userRepository.findByEmail(userEmail)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + userEmail));
+    public DashboardResponse getDashboardStats(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with ID: " + userId));
+        return calculateMetrics(user);
+    }
 
+    @Override
+    public DashboardResponse getDashboardStats(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + email));
+        return calculateMetrics(user);
+    }
+
+    private DashboardResponse calculateMetrics(User user) {
         Long userId = user.getId();
+        log.info("Calculating dashboard stats for user ID: {}", userId);
 
         long totalGoals = goalRepository.countByUserId(userId);
         long completedGoals = goalRepository.countByUserIdAndIsCompleted(userId, true);
@@ -43,10 +61,18 @@ public class DashboardServiceImpl implements DashboardService {
         long inProgressTasks = taskRepository.countByUserIdAndStatus(userId, TaskStatus.IN_PROGRESS);
         long pendingTasks = taskRepository.countByUserIdAndStatus(userId, TaskStatus.PENDING);
 
-        double overallProgress = totalTasks > 0 ? ((double) completedTasks / totalTasks) * 100.0 : 0.0;
-        overallProgress = Math.round(overallProgress * 100.0) / 100.0;
-
         List<Goal> goals = goalRepository.findByUserId(userId);
+
+        // Calculate overallProgress as average of all goal progress values (safe from divide-by-zero)
+        double overallProgress = 0.0;
+        if (!goals.isEmpty()) {
+            double sum = 0.0;
+            for (Goal g : goals) {
+                sum += (g.getProgress() != null ? g.getProgress() : 0);
+            }
+            overallProgress = Math.round((sum / goals.size()) * 100.0) / 100.0;
+        }
+
         List<DashboardResponse.GoalProgressItem> goalProgressList = goals.stream()
                 .map(g -> DashboardResponse.GoalProgressItem.builder()
                         .goalId(g.getId())
