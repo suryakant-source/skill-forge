@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * SIDEBAR COMPONENT — SkillForge Dashboard Navigation
+ * SIDEBAR COMPONENT  -  SkillForge Dashboard Navigation
  * ============================================================================
  *
  * Purpose:

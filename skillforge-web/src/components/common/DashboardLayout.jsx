@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * DASHBOARD LAYOUT — SkillForge App Shell
+ * DASHBOARD LAYOUT  -  SkillForge App Shell
  * ============================================================================
  *
  * Purpose:
@@ -9,11 +9,11 @@
  *
  * Structure:
  *   +--------------------------------------------+
- *   ¦  SIDEBAR (fixed, left)                     ¦
- *   +--------------------------------------------¦
- *   ¦  NAVBAR (sticky, top) — inside main area   ¦
- *   ¦--------------------------------------------¦
- *   ¦  PAGE CONTENT (Outlet)                     ¦
+ *   |  SIDEBAR (fixed, left)                     |
+ *   +--------------------------------------------|
+ *   |  NAVBAR (sticky, top)  -  inside main area   |
+ *   |--------------------------------------------|
+ *   |  PAGE CONTENT (Outlet)                     |
  *   +--------------------------------------------+
  *
  * Behavior:
@@ -36,7 +36,7 @@ const DashboardLayout = () => {
 
   return (
     <div className="min-h-screen" style={{ background: '#0F0F1A' }}>
-      {/* Left sidebar — fixed position inside viewport */}
+      {/* Left sidebar  -  fixed position inside viewport */}
       <Sidebar isOpen={sidebarOpen} onToggle={toggleSidebar} />
 
       {/*

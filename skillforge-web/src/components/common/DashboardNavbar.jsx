@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * DASHBOARD NAVBAR — Top bar for authenticated pages
+ * DASHBOARD NAVBAR  -  Top bar for authenticated pages
  * ============================================================================
  *
  * Purpose:
@@ -12,7 +12,7 @@
  *     - Quick logout button
  *
  * This navbar is DIFFERENT from the public Navbar (used on Landing/Login/Signup).
- * It is scoped to the app shell and does NOT repeat the full nav — that is the
+ * It is scoped to the app shell and does NOT repeat the full nav  -  that is the
  * sidebar's job.
  * ============================================================================
  */

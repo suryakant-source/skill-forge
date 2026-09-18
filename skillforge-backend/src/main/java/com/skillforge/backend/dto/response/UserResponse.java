@@ -12,6 +12,8 @@ import java.util.List;
 
 /**
  * Safe user profile response excluding sensitive credentials.
+ * Skills are returned as SkillResponse objects (with id + skillName)
+ * so the frontend can delete individual skills by their database ID.
  */
 @Data
 @Builder
@@ -26,7 +28,10 @@ public class UserResponse {
     private String careerGoal;
     private ExperienceLevel experienceLevel;
     private Role role;
-    private List<String> skills;
+
+    /** Skills with ID + name so frontend can call DELETE /api/users/skills/{id} */
+    private List<SkillResponse> skills;
+
     private Boolean isActive;
     private LocalDateTime createdAt;
 }

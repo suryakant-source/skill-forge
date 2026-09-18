@@ -1,6 +1,7 @@
 package com.skillforge.backend.service.impl;
 
 import com.skillforge.backend.dto.request.UpdateProfileRequest;
+import com.skillforge.backend.dto.response.SkillResponse;
 import com.skillforge.backend.dto.response.UserResponse;
 import com.skillforge.backend.entity.User;
 import com.skillforge.backend.entity.UserSkill;
@@ -139,9 +140,13 @@ public class UserServiceImpl implements UserService {
         log.info("User account deactivated for ID: {}", userId);
     }
 
+
     private UserResponse mapToUserResponse(User user) {
-        List<String> skills = userSkillRepository.findByUserId(user.getId()).stream()
-                .map(UserSkill::getSkillName)
+        List<SkillResponse> skills = userSkillRepository.findByUserId(user.getId()).stream()
+                .map(s -> SkillResponse.builder()
+                        .id(s.getId())
+                        .skillName(s.getSkillName())
+                        .build())
                 .collect(Collectors.toList());
 
         return UserResponse.builder()

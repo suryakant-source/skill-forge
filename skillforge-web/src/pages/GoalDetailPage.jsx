@@ -1,33 +1,50 @@
-﻿/**
+/**
  * ============================================================================
- * GoalDetailPage — Single Goal Detail + Task Management
+ * GoalDetailPage — Goal Hero + Full Task Management
  * ============================================================================
  *
- * Data coordination:
- *   useGoalDetail(id) → goal hero + meta info
- *   useGoalTasks(id)  → goal-scoped task list
- *   useTasks()        → createTask / updateStatus / deleteTask actions
+ * This page is the execution center for a learning goal. It displays:
+ *   1. Goal hero banner: title, description, category, progress bar
+ *   2. Quick stat cards: total / pending / completed / in-progress
+ *   3. Filter tabs: All | Pending | In Progress | Completed
+ *   4. Task list using TaskCard with status toggle, edit, delete
+ *   5. Add Task & Edit Task modals (TaskForm)
+ *   6. Delete task confirmation (DeleteConfirmModal)
+ *   7. Delete goal confirmation (DeleteConfirmModal → navigates away)
  *
- * The page acts as a container that:
- *   1. Displays goal's full profile at the top (hero banner)
- *   2. Shows quick stats (total / completed / pending tasks)
- *   3. Lists each task with checkbox toggle, status badge, and delete
- *   4. Provides inline Add Task modal for fast task creation
+ * REAL-TIME PROGRESS SYNC:
+ * ────────────────────────
+ * When a task's status changes to COMPLETED, useUpdateTaskStatus() invalidates:
+ *   ['tasks', goalId]        → task list re-fetches (checkbox turns green)
+ *   ['goal', goalId]         → this page's progress bar re-animates
+ *   ['goals']                → GoalsPage card progress bar re-animates
+ *   ['dashboard']            → Dashboard stat card updates
+ * Backend computes: progress = (completedCount / totalCount) * 100
+ *
+ * QUERY KEY SYNC:
+ * useGoalDetail uses queryKey ['goal', id] (string, from useParams)
+ * useGoalTasks  uses queryKey ['tasks', id] (string, from useParams)
+ * Invalidation covers both String & Number variants for safety.
  * ============================================================================
  */
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
-  FiArrowLeft, FiEdit2, FiTrash2, FiPlus, FiClock,
-  FiCalendar, FiCheckCircle, FiList, FiTarget, FiX,
+  FiArrowLeft, FiEdit2, FiTrash2, FiPlus,
+  FiClock, FiCalendar, FiCheckCircle, FiList,
+  FiTarget, FiPlayCircle,
 } from 'react-icons/fi';
-import { FaCheckCircle } from 'react-icons/fa';
 import { useGoalDetail, useDeleteGoal } from '../hooks/useGoals';
-import { useGoalTasks, useTasks } from '../hooks/useTasks';
+import { useGoalTasks, useUpdateTaskStatus, useDeleteTask } from '../hooks/useTasks';
 import GoalForm from '../components/goals/GoalForm';
+import TaskCard from '../components/tasks/TaskCard';
+import TaskForm from '../components/tasks/TaskForm';
 import DeleteConfirmModal from '../components/common/DeleteConfirmModal';
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Category color map (matches GoalCard)
+// ─────────────────────────────────────────────────────────────────────────────
 const CATEGORY_COLORS = {
   BACKEND:  { bg: 'rgba(108,99,255,0.15)', border: 'rgba(108,99,255,0.4)', text: '#6C63FF' },
   FRONTEND: { bg: 'rgba(62,207,207,0.15)', border: 'rgba(62,207,207,0.4)', text: '#3ECFCF' },
@@ -45,67 +62,105 @@ const StatCard = ({ icon: Icon, label, value, color }) => (
   <div className="rounded-xl p-4 border border-white/8 flex items-center gap-3"
     style={{ background: 'rgba(26,26,46,0.7)' }}>
     <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-      style={{ background: color + '22', border: `1px solid ${color}66` }}>
+      style={{ background: `${color}22`, border: `1px solid ${color}55` }}>
       <Icon style={{ color }} className="text-base" />
     </div>
     <div>
-      <p className="text-xs text-gray-500">{label}</p>
-      <p className="text-xl font-bold text-white">{value}</p>
+      <p className="text-[11px] text-gray-500 uppercase tracking-wide">{label}</p>
+      <p className="text-2xl font-bold text-white leading-none mt-0.5">{value}</p>
     </div>
   </div>
 );
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Tab definitions
+// ─────────────────────────────────────────────────────────────────────────────
+const TABS = [
+  { key: 'ALL',         label: 'All Tasks',   Icon: FiList },
+  { key: 'PENDING',     label: 'Pending',     Icon: FiClock },
+  { key: 'IN_PROGRESS', label: 'In Progress', Icon: FiPlayCircle },
+  { key: 'COMPLETED',   label: 'Completed',   Icon: FiCheckCircle },
+];
+
 const GoalDetailPage = () => {
-  const { id } = useParams();
+  const { id } = useParams();          // id is always a string from URL
   const navigate = useNavigate();
 
-  const { data: goal, isLoading: goalLoading }   = useGoalDetail(id);
-  const { data: tasksData, isLoading: tasksLoading } = useGoalTasks(id);
-  const { createTask, updateStatus, deleteTask, isCreating } = useTasks();
+  // ── Data hooks ─────────────────────────────────────────────
+  const { data: goal, isLoading: goalLoading }      = useGoalDetail(id);
+  const { data: tasks = [], isLoading: tasksLoading } = useGoalTasks(id);
+
+  // Goal-scoped mutation hooks
+  const statusMutation = useUpdateTaskStatus(id);
+  const deleteMutation  = useDeleteTask(id);
   const deleteGoalMutation = useDeleteGoal();
 
-  // Normalize task list
-  const tasks = Array.isArray(tasksData)
-    ? tasksData
-    : Array.isArray(tasksData?.data)
-    ? tasksData.data
-    : [];
+  // ── UI state ───────────────────────────────────────────────
+  const [activeTab, setActiveTab]           = useState('ALL');
+  const [isGoalEditOpen, setIsGoalEditOpen] = useState(false);
+  const [deleteGoalOpen, setDeleteGoalOpen] = useState(false);
 
-  const completedCount = tasks.filter((t) => t.status === 'COMPLETED').length;
-  const pendingCount   = tasks.filter((t) => t.status !== 'COMPLETED').length;
-  const percent = tasks.length > 0 ? Math.round((completedCount / tasks.length) * 100) : 0;
+  // Task form modal: create or edit
+  const [taskFormState, setTaskFormState] = useState({ open: false, task: null });
+  // Task delete confirm
+  const [deleteTaskState, setDeleteTaskState] = useState({ open: false, taskId: null });
+
+  // ── Derived values ─────────────────────────────────────────
+  const taskList      = Array.isArray(tasks) ? tasks : [];
+  const totalCount    = taskList.length;
+  const completedCount = taskList.filter((t) => t.status === 'COMPLETED').length;
+  const inProgressCount = taskList.filter((t) => t.status === 'IN_PROGRESS').length;
+  const pendingCount  = taskList.filter((t) => t.status === 'PENDING').length;
+  const progress      = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
 
   const cat   = goal?.category?.toUpperCase() || 'OTHER';
   const color = CATEGORY_COLORS[cat] || DEFAULT_COLOR;
 
-  // ── Modal state ───────────────────────────────────────────────
-  const [isEditOpen, setIsEditOpen] = useState(false);
-  const [deleteGoalModal, setDeleteGoalModal] = useState(false);
-  const [showTaskModal, setShowTaskModal]     = useState(false);
-  const [taskForm, setTaskForm] = useState({ title: '', description: '', estimatedHours: 2 });
-
-  const handleCreateTask = async (e) => {
-    e.preventDefault();
-    if (!taskForm.title.trim()) return;
-    await createTask({ ...taskForm, goalId: id });
-    setShowTaskModal(false);
-    setTaskForm({ title: '', description: '', estimatedHours: 2 });
+  // Tab count badges
+  const TAB_COUNTS = {
+    ALL:         totalCount,
+    PENDING:     pendingCount,
+    IN_PROGRESS: inProgressCount,
+    COMPLETED:   completedCount,
   };
 
-  const handleConfirmDeleteGoal = async () => {
+  // Filtered task list based on active tab
+  const filteredTasks = useMemo(() => {
+    if (activeTab === 'ALL') return taskList;
+    return taskList.filter((t) => t.status === activeTab);
+  }, [taskList, activeTab]);
+
+  // ── Handlers ───────────────────────────────────────────────
+  const handleStatusChange = (taskId, status) => {
+    statusMutation.mutate({ taskId, status });
+  };
+
+  const handleEditTask = (task) => {
+    setTaskFormState({ open: true, task });
+  };
+
+  const handleDeleteTaskOpen = (taskId) => {
+    setDeleteTaskState({ open: true, taskId });
+  };
+
+  const handleDeleteTaskConfirm = async () => {
+    await deleteMutation.mutateAsync(deleteTaskState.taskId);
+    setDeleteTaskState({ open: false, taskId: null });
+  };
+
+  const handleDeleteGoalConfirm = async () => {
     await deleteGoalMutation.mutateAsync(id);
     navigate('/goals');
   };
 
+  // ── Loading state ──────────────────────────────────────────
   if (goalLoading) {
     return (
-      <div className="max-w-5xl mx-auto">
-        <div className="animate-pulse space-y-6">
-          <div className="h-6 w-32 rounded-lg bg-white/5" />
-          <div className="rounded-2xl h-56 bg-white/5 border border-white/8" />
-          <div className="grid grid-cols-3 gap-4">
-            {[1,2,3].map(i => <div key={i} className="h-20 rounded-xl bg-white/5 border border-white/8" />)}
-          </div>
+      <div className="max-w-5xl mx-auto animate-pulse space-y-6">
+        <div className="h-5 w-28 rounded-lg bg-white/5" />
+        <div className="rounded-2xl h-60 bg-white/5 border border-white/8" />
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          {[1,2,3,4].map(i => <div key={i} className="h-20 rounded-xl bg-white/5 border border-white/8" />)}
         </div>
       </div>
     );
@@ -116,7 +171,7 @@ const GoalDetailPage = () => {
       <div className="max-w-5xl mx-auto text-center py-20">
         <FiTarget className="text-gray-600 text-5xl mx-auto mb-4" />
         <h2 className="text-xl font-bold text-white mb-2">Goal not found</h2>
-        <p className="text-gray-400 text-sm mb-6">This goal may have been deleted or the ID is incorrect.</p>
+        <p className="text-gray-400 text-sm mb-6">This goal may have been deleted.</p>
         <Link to="/goals" className="gradient-btn text-sm px-4 py-2">← Back to Goals</Link>
       </div>
     );
@@ -125,18 +180,19 @@ const GoalDetailPage = () => {
   return (
     <div className="max-w-5xl mx-auto space-y-6">
 
-      {/* ── Back navigation ────────────────────────────────────── */}
+      {/* ── Breadcrumb ─────────────────────────────────────────── */}
       <Link to="/goals"
         className="inline-flex items-center gap-1.5 text-xs text-gray-400 hover:text-white transition">
         <FiArrowLeft /> Back to Goals
       </Link>
 
-      {/* ── Hero Banner ────────────────────────────────────────── */}
+      {/* ── Goal Hero Banner ───────────────────────────────────── */}
       <div className="rounded-2xl p-6 sm:p-8 border"
-        style={{ background: 'rgba(26,26,46,0.8)', borderColor: color.border }}>
+        style={{ background: 'rgba(26,26,46,0.85)', borderColor: color.border,
+          boxShadow: `0 0 40px ${color.bg}` }}>
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
           <div className="flex-1 min-w-0">
-            {/* Badges */}
+            {/* Badges row */}
             <div className="flex items-center gap-2 flex-wrap mb-3">
               <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-md uppercase tracking-wide"
                 style={{ background: color.bg, border: `1px solid ${color.border}`, color: color.text }}>
@@ -162,217 +218,209 @@ const GoalDetailPage = () => {
               {goal.description || 'No description provided.'}
             </p>
 
-            {/* Meta badges */}
-            <div className="flex items-center gap-4 mt-4 text-xs text-gray-500">
+            {/* Target days + daily hours */}
+            <div className="flex items-center gap-4 mt-4 flex-wrap">
               {goal.targetDays && (
-                <span className="flex items-center gap-1.5">
-                  <FiClock style={{ color: color.text }} />{goal.targetDays} days target
+                <span className="flex items-center gap-1.5 text-xs text-gray-500">
+                  <FiClock style={{ color: color.text }} />{goal.targetDays} day target
                 </span>
               )}
               {goal.dailyHours && (
-                <span className="flex items-center gap-1.5">
+                <span className="flex items-center gap-1.5 text-xs text-gray-500">
                   <FiCalendar style={{ color: '#3ECFCF' }} />{goal.dailyHours} hrs/day
                 </span>
               )}
             </div>
           </div>
 
-          {/* Action buttons */}
+          {/* Edit / Delete buttons */}
           <div className="flex items-center gap-2 shrink-0">
-            <button
-              onClick={() => setIsEditOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium text-gray-300 hover:text-white transition border border-white/10 hover:border-primary/40 hover:bg-primary/5"
-            >
-              <FiEdit2 /> Edit
+            <button onClick={() => setIsGoalEditOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium text-gray-300 hover:text-white border border-white/10 hover:border-primary/40 hover:bg-primary/5 transition">
+              <FiEdit2 /> Edit Goal
             </button>
-            <button
-              onClick={() => setDeleteGoalModal(true)}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium text-gray-400 hover:text-red-400 transition border border-white/10 hover:border-red-500/30 hover:bg-red-500/5"
-            >
+            <button onClick={() => setDeleteGoalOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium text-gray-400 hover:text-red-400 border border-white/10 hover:border-red-500/30 hover:bg-red-500/5 transition">
               <FiTrash2 /> Delete
             </button>
           </div>
         </div>
 
-        {/* Progress bar */}
+        {/* ── Progress Bar ──────────────────────────────────────── */}
         <div className="mt-6 pt-6 border-t border-white/8">
           <div className="flex items-center justify-between text-xs mb-2">
-            <span className="text-gray-500">Overall Progress</span>
+            <span className="text-gray-500">Goal Progress</span>
             <span className="font-bold" style={{ color: color.text }}>
-              {percent}% ({completedCount}/{tasks.length} tasks)
+              {progress}% &mdash; {completedCount}/{totalCount} tasks completed
             </span>
           </div>
-          <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.07)' }}>
+          <div className="w-full h-2.5 rounded-full overflow-hidden"
+            style={{ background: 'rgba(255,255,255,0.07)' }}>
+            {/* Animated progress bar — width recalculates after query invalidation */}
             <div
-              className="h-full rounded-full transition-all duration-700"
-              style={{ width: `${percent}%`, background: `linear-gradient(90deg, ${color.text}, #3ECFCF)` }}
+              className="h-full rounded-full transition-all duration-700 ease-out"
+              style={{
+                width: `${progress}%`,
+                background: `linear-gradient(90deg, ${color.text} 0%, #3ECFCF 100%)`,
+              }}
             />
           </div>
         </div>
       </div>
 
       {/* ── Quick Stats ────────────────────────────────────────── */}
-      <div className="grid grid-cols-3 gap-4">
-        <StatCard icon={FiList}         label="Total Tasks"     value={tasks.length}    color="#6C63FF" />
-        <StatCard icon={FiCheckCircle}  label="Completed"       value={completedCount}  color="#48BB78" />
-        <StatCard icon={FiTarget}       label="Pending"         value={pendingCount}    color="#ECC94B" />
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <StatCard icon={FiList}         label="Total"       value={totalCount}     color="#6C63FF" />
+        <StatCard icon={FiClock}        label="Pending"     value={pendingCount}   color="#ECC94B" />
+        <StatCard icon={FiPlayCircle}   label="In Progress" value={inProgressCount} color="#3ECFCF" />
+        <StatCard icon={FiCheckCircle}  label="Completed"   value={completedCount} color="#48BB78" />
       </div>
 
-      {/* ── Tasks section ──────────────────────────────────────── */}
-      <div>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-bold text-white">Goal Tasks & Roadmap</h2>
-          <button onClick={() => setShowTaskModal(true)} className="gradient-btn text-xs px-3.5 py-2 gap-1.5">
-            <FiPlus /> Add Task
+      {/* ── Tasks Section ──────────────────────────────────────── */}
+      <div className="rounded-2xl border border-white/8 overflow-hidden"
+        style={{ background: 'rgba(26,26,46,0.6)' }}>
+
+        {/* ── Section Header ─────────────────────────────────── */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-white/8">
+          <h2 className="text-base font-bold text-white flex items-center gap-2">
+            <FiList className="text-primary" style={{ color: '#6C63FF' }} />
+            Goal Tasks & Roadmap
+            <span className="text-xs text-gray-500 font-normal">({totalCount})</span>
+          </h2>
+          <button
+            onClick={() => setTaskFormState({ open: true, task: null })}
+            className="gradient-btn text-xs px-3.5 py-2 gap-1.5"
+          >
+            <FiPlus /> Add New Task
           </button>
         </div>
 
-        {tasksLoading ? (
-          <div className="space-y-3">
-            {[1,2,3].map(i => (
-              <div key={i} className="rounded-xl h-16 border border-white/8 animate-pulse"
-                style={{ background: 'rgba(26,26,46,0.6)' }} />
-            ))}
-          </div>
-        ) : tasks.length === 0 ? (
-          <div className="rounded-2xl border border-white/8 p-10 text-center"
-            style={{ background: 'rgba(26,26,46,0.6)' }}>
-            <FiList className="text-gray-600 text-4xl mx-auto mb-3" />
-            <p className="text-gray-300 font-medium">No tasks yet for this goal!</p>
-            <p className="text-gray-500 text-xs mt-1 mb-5">Break this goal into smaller, actionable steps.</p>
-            <button onClick={() => setShowTaskModal(true)} className="gradient-btn text-xs px-4 py-2 gap-1.5">
-              <FiPlus /> Add First Task
-            </button>
-          </div>
-        ) : (
-          <div className="space-y-2.5">
-            {tasks.map((task) => (
-              <div key={task.id}
-                className="rounded-xl px-4 py-3 border border-white/8 flex items-center justify-between gap-3 transition hover:border-white/15"
-                style={{ background: 'rgba(26,26,46,0.7)' }}>
-                <div className="flex items-center gap-3 min-w-0">
-                  {/* Toggle checkbox */}
-                  <button
-                    onClick={() => updateStatus({
-                      id: task.id,
-                      status: task.status === 'COMPLETED' ? 'PENDING' : 'COMPLETED',
-                    })}
-                    className="w-5 h-5 rounded border flex items-center justify-center shrink-0 transition"
-                    style={task.status === 'COMPLETED'
-                      ? { background: '#48BB78', borderColor: '#48BB78' }
-                      : { borderColor: '#4A5568' }}
-                  >
-                    {task.status === 'COMPLETED' && <FaCheckCircle className="text-white text-xs" />}
-                  </button>
-                  <div className="min-w-0">
-                    <p className={`text-sm font-medium truncate ${task.status === 'COMPLETED' ? 'line-through text-gray-500' : 'text-white'}`}>
-                      {task.title}
-                    </p>
-                    {task.description && (
-                      <p className="text-xs text-gray-500 truncate">{task.description}</p>
-                    )}
-                  </div>
-                </div>
+        {/* ── Filter Tabs ────────────────────────────────────── */}
+        <div className="flex border-b border-white/8 overflow-x-auto">
+          {TABS.map(({ key, label, Icon }) => {
+            const isActive = activeTab === key;
+            const count    = TAB_COUNTS[key];
+            return (
+              <button
+                key={key}
+                onClick={() => setActiveTab(key)}
+                className={`flex items-center gap-1.5 px-4 py-3 text-xs font-semibold whitespace-nowrap border-b-2 transition-colors ${
+                  isActive
+                    ? 'text-primary border-primary'
+                    : 'text-gray-500 border-transparent hover:text-gray-300'
+                }`}
+                style={isActive ? { color: '#6C63FF', borderBottomColor: '#6C63FF' } : {}}
+              >
+                <Icon className="text-[11px]" />
+                {label}
+                <span
+                  className="px-1.5 py-0.5 rounded-md text-[10px] font-bold"
+                  style={isActive
+                    ? { background: 'rgba(108,99,255,0.2)', color: '#6C63FF' }
+                    : { background: 'rgba(255,255,255,0.07)', color: '#718096' }
+                  }
+                >
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
 
-                <div className="flex items-center gap-2 shrink-0">
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded uppercase"
-                    style={
-                      task.status === 'COMPLETED'
-                        ? { background: 'rgba(72,187,120,0.15)', color: '#48BB78' }
-                        : task.status === 'IN_PROGRESS'
-                        ? { background: 'rgba(62,207,207,0.15)', color: '#3ECFCF' }
-                        : { background: 'rgba(236,201,75,0.1)', color: '#ECC94B' }
-                    }
-                  >
-                    {task.status?.replace('_', ' ')}
-                  </span>
-                  <button
-                    onClick={() => deleteTask(task.id)}
-                    className="p-1.5 rounded-lg text-gray-600 hover:text-red-400 hover:bg-red-500/10 transition"
-                  >
-                    <FiTrash2 className="text-xs" />
-                  </button>
-                </div>
+        {/* ── Task List ──────────────────────────────────────── */}
+        <div className="p-4">
+          {tasksLoading ? (
+            /* Skeleton loader */
+            <div className="space-y-2.5">
+              {[1,2,3].map(i => (
+                <div key={i} className="h-16 rounded-xl border border-white/8 animate-pulse"
+                  style={{ background: 'rgba(26,26,46,0.6)' }} />
+              ))}
+            </div>
+
+          ) : filteredTasks.length === 0 ? (
+            /* Empty state */
+            <div className="py-12 text-center">
+              <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4"
+                style={{ background: 'rgba(108,99,255,0.12)', border: '1px solid rgba(108,99,255,0.25)' }}>
+                {activeTab === 'COMPLETED'
+                  ? <FiCheckCircle className="text-green-400 text-2xl" />
+                  : <FiList className="text-primary text-2xl" style={{ color: '#6C63FF' }} />
+                }
               </div>
-            ))}
-          </div>
-        )}
+              <p className="text-gray-300 font-semibold text-sm">
+                {activeTab === 'ALL'
+                  ? 'No tasks yet for this goal'
+                  : `No ${activeTab.toLowerCase().replace('_', ' ')} tasks`}
+              </p>
+              <p className="text-gray-500 text-xs mt-1 mb-5">
+                {activeTab === 'ALL'
+                  ? 'Break this goal into smaller, actionable steps to track your progress.'
+                  : 'Switch to another tab or add new tasks.'}
+              </p>
+              {activeTab === 'ALL' && (
+                <button
+                  onClick={() => setTaskFormState({ open: true, task: null })}
+                  className="gradient-btn text-xs px-4 py-2 gap-1.5"
+                >
+                  <FiPlus /> Add Your First Task
+                </button>
+              )}
+            </div>
+
+          ) : (
+            /* Task cards */
+            <div className="space-y-2.5">
+              {filteredTasks.map((task) => (
+                <TaskCard
+                  key={task.id}
+                  task={task}
+                  onStatusChange={handleStatusChange}
+                  onEdit={handleEditTask}
+                  onDelete={handleDeleteTaskOpen}
+                  isChangingStatus={statusMutation.isPending}
+                />
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* ── Add Task Modal ─────────────────────────────────────── */}
-      {showTaskModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)' }}
-          onClick={(e) => { if (e.target === e.currentTarget) setShowTaskModal(false); }}>
-          <div className="w-full max-w-md rounded-2xl border shadow-2xl"
-            style={{ background: '#1A1A2E', borderColor: 'rgba(108,99,255,0.3)' }}>
-            <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-white/8">
-              <h3 className="text-base font-bold text-white">Add Task to Goal</h3>
-              <button onClick={() => setShowTaskModal(false)}
-                className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/8 transition">
-                <FiX className="text-lg" />
-              </button>
-            </div>
-            <form onSubmit={handleCreateTask} className="px-6 py-5 space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-gray-300 uppercase mb-1.5">
-                  Task Title <span className="text-red-400">*</span>
-                </label>
-                <input
-                  type="text" required
-                  value={taskForm.title}
-                  onChange={(e) => setTaskForm({ ...taskForm, title: e.target.value })}
-                  placeholder="e.g. Complete Spring Data JPA exercises"
-                  className="input-field text-sm"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-gray-300 uppercase mb-1.5">Description</label>
-                <textarea rows={2}
-                  value={taskForm.description}
-                  onChange={(e) => setTaskForm({ ...taskForm, description: e.target.value })}
-                  placeholder="Additional notes..."
-                  className="input-field text-sm resize-none"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-gray-300 uppercase mb-1.5">Estimated Hours</label>
-                <input type="number" min={1} max={24}
-                  value={taskForm.estimatedHours}
-                  onChange={(e) => setTaskForm({ ...taskForm, estimatedHours: Number(e.target.value) })}
-                  className="input-field text-sm"
-                />
-              </div>
-              <div className="flex justify-end gap-3 pt-1">
-                <button type="button" onClick={() => setShowTaskModal(false)}
-                  className="px-4 py-2 text-sm text-gray-400 hover:text-white rounded-lg hover:bg-white/5 transition">
-                  Cancel
-                </button>
-                <button type="submit" disabled={isCreating}
-                  className="gradient-btn text-sm px-4 py-2 disabled:opacity-50">
-                  {isCreating ? 'Adding...' : 'Add Task'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* ── Modals ─────────────────────────────────────────────── */}
 
-      {/* ── Edit Goal Modal ────────────────────────────────────── */}
+      {/* Task Create / Edit modal */}
+      <TaskForm
+        isOpen={taskFormState.open}
+        onClose={() => setTaskFormState({ open: false, task: null })}
+        goalId={id}
+        initialData={taskFormState.task}
+      />
+
+      {/* Task delete confirmation */}
+      <DeleteConfirmModal
+        isOpen={deleteTaskState.open}
+        onClose={() => setDeleteTaskState({ open: false, taskId: null })}
+        onConfirm={handleDeleteTaskConfirm}
+        isLoading={deleteMutation.isPending}
+        title="Delete Task"
+        message="Are you sure you want to delete this task? Goal progress will be recalculated. This cannot be undone."
+      />
+
+      {/* Goal edit modal */}
       <GoalForm
-        isOpen={isEditOpen}
-        onClose={() => setIsEditOpen(false)}
+        isOpen={isGoalEditOpen}
+        onClose={() => setIsGoalEditOpen(false)}
         initialData={goal}
       />
 
-      {/* ── Delete Goal Confirm ────────────────────────────────── */}
+      {/* Goal delete confirmation */}
       <DeleteConfirmModal
-        isOpen={deleteGoalModal}
-        onClose={() => setDeleteGoalModal(false)}
-        onConfirm={handleConfirmDeleteGoal}
+        isOpen={deleteGoalOpen}
+        onClose={() => setDeleteGoalOpen(false)}
+        onConfirm={handleDeleteGoalConfirm}
         isLoading={deleteGoalMutation.isPending}
         title="Delete Goal"
-        message="This will permanently delete this goal and ALL of its tasks. This action cannot be undone."
+        message="This will permanently delete this goal AND all its tasks. This action cannot be undone."
       />
     </div>
   );

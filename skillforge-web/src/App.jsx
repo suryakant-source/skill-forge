@@ -27,7 +27,7 @@ import AdminPage from './pages/AdminPage';
  * PROVIDER HIERARCHY
  * ============================================================================
  * QueryClientProvider  (server-state caching)
- *   AuthProvider       (global auth state — outside BrowserRouter so routes
+ *   AuthProvider       (global auth state  -  outside BrowserRouter so routes
  *                       can read auth synchronously during first render)
  *     BrowserRouter    (HTML5 History API routing)
  *       Toaster        (toast notifications, top-right)
@@ -88,7 +88,7 @@ export default function App() {
               <Route path="/ai-assistant" element={<AIAssistantPage />} />
               <Route path="/profile" element={<ProfilePage />} />
 
-              {/* Admin route — additional role check inside AdminRoute */}
+              {/* Admin route  -  additional role check inside AdminRoute */}
               <Route
                 path="/admin"
                 element={
