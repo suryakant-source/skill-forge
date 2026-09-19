@@ -80,8 +80,6 @@ export default function GoalDetailScreen() {
     },
   });
 
-  const [taskFilter, setTaskFilter] = useState('ALL'); // ALL, PENDING, IN_PROGRESS, COMPLETED
-
   // Update Task Status Mutation
   const statusMutation = useMutation({
     mutationFn: async ({ taskId, newStatus }) => {
