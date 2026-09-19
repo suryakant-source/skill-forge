@@ -37,7 +37,7 @@ export default function DashboardScreen() {
         const goals = await axiosInstance.get('/goals');
         const list = Array.isArray(goals) ? goals : (Array.isArray(goals?.data) ? goals.data : []);
         const totalGoals = list.length;
-        const isGoalDone = (g) => Boolean(g.isCompleted || (g.progress != null && g.progress >= 100));
+        const isGoalDone = (g) => Boolean(g.isCompleted || g.completed || (g.progress != null && g.progress >= 100));
         const completedGoals = list.filter(isGoalDone).length;
         const inProgressGoals = list.filter((g) => !isGoalDone(g)).length;
         return {
@@ -194,7 +194,10 @@ export default function DashboardScreen() {
           </View>
         ) : (
           goals.map((item) => {
-            const isDone = Boolean(item.isCompleted || (item.progress != null && item.progress >= 100));
+            const isDone = Boolean(item.isCompleted || item.completed || (item.progress != null && item.progress >= 100));
+            const completedTasks = item.completedTaskCount != null ? item.completedTaskCount : 0;
+            const totalTasks = item.taskCount != null ? item.taskCount : 0;
+
             return (
               <TouchableOpacity
                 key={item.id}
@@ -212,7 +215,7 @@ export default function DashboardScreen() {
                       {
                         backgroundColor: isDone
                           ? 'rgba(72, 187, 120, 0.2)'
-                          : 'rgba(108, 99, 255, 0.2)',
+                          : 'rgba(62, 207, 207, 0.2)',
                       },
                     ]}
                   >
@@ -220,7 +223,7 @@ export default function DashboardScreen() {
                       style={[
                         styles.statusText,
                         {
-                          color: isDone ? Colors.success : Colors.primary,
+                          color: isDone ? Colors.success : Colors.secondary,
                         },
                       ]}
                     >
@@ -233,17 +236,33 @@ export default function DashboardScreen() {
                 {item.description || 'No description provided'}
               </Text>
 
+              {totalTasks > 0 && (
+                <Text style={{ fontSize: 11, color: Colors.textMuted, marginBottom: 8, fontWeight: '600' }}>
+                  🎯 {completedTasks} of {totalTasks} tasks completed
+                </Text>
+              )}
+
               {/* Progress Bar */}
               <View style={styles.progressContainer}>
                 <View style={styles.progressBarTrack}>
                   <View
                     style={[
                       styles.progressBarFill,
-                      { width: `${Math.min(item.progress || 0, 100)}%` },
+                      {
+                        width: `${Math.min(item.progress || 0, 100)}%`,
+                        backgroundColor: isDone ? Colors.success : Colors.secondary,
+                      },
                     ]}
                   />
                 </View>
-                <Text style={styles.progressText}>{item.progress || 0}%</Text>
+                <Text
+                  style={[
+                    styles.progressText,
+                    { color: isDone ? Colors.success : Colors.secondary },
+                  ]}
+                >
+                  {item.progress || 0}%
+                </Text>
               </View>
             </TouchableOpacity>
           ))

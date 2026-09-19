@@ -85,11 +85,35 @@ export default function GoalDetailScreen() {
     },
   });
 
-  // Toggle Task Status Mutation
-  const toggleTaskMutation = useMutation({
-    mutationFn: async ({ taskId, currentStatus }) => {
-      const nextStatus = currentStatus === 'COMPLETED' ? 'PENDING' : 'COMPLETED';
-      return await axiosInstance.patch(`/tasks/${taskId}/status`, { status: nextStatus });
+  const [taskFilter, setTaskFilter] = useState('ALL'); // ALL, PENDING, IN_PROGRESS, COMPLETED
+
+  // Update Task Status Mutation
+  const statusMutation = useMutation({
+    mutationFn: async ({ taskId, newStatus }) => {
+      return await axiosInstance.patch(`/tasks/${taskId}/status`, { status: newStatus });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['goal-tasks', id] });
+      queryClient.invalidateQueries({ queryKey: ['goal-detail', id] });
+      queryClient.invalidateQueries({ queryKey: ['goals-list'] });
+      queryClient.invalidateQueries({ queryKey: ['all-tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-recent-goals'] });
+    },
+    onError: (err) => {
+      const msg = err.message || 'Failed to update task status';
+      if (Platform.OS !== 'web') {
+        Alert.alert('Error', msg);
+      } else {
+        alert(msg);
+      }
+    },
+  });
+
+  // Delete Task Mutation
+  const deleteTaskMutation = useMutation({
+    mutationFn: async (taskId) => {
+      return await axiosInstance.delete(`/tasks/${taskId}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['goal-tasks', id] });
@@ -128,7 +152,30 @@ export default function GoalDetailScreen() {
     );
   }
 
+  const isGoalDone = Boolean(goal.isCompleted || goal.completed || (goal.progress != null && goal.progress >= 100));
+
+  const pendingCount = tasks.filter((t) => t.status === 'PENDING').length;
+  const inProgressCount = tasks.filter((t) => t.status === 'IN_PROGRESS').length;
   const completedCount = tasks.filter((t) => t.status === 'COMPLETED').length;
+
+  const filteredTasks = tasks.filter((t) => {
+    if (taskFilter === 'ALL') return true;
+    if (taskFilter === 'PENDING') return t.status === 'PENDING';
+    if (taskFilter === 'IN_PROGRESS') return t.status === 'IN_PROGRESS';
+    if (taskFilter === 'COMPLETED') return t.status === 'COMPLETED';
+    return true;
+  });
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'COMPLETED':
+        return Colors.success;
+      case 'IN_PROGRESS':
+        return Colors.secondary;
+      default:
+        return Colors.warning;
+    }
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -143,16 +190,15 @@ export default function GoalDetailScreen() {
         </View>
 
         {/* Goal Hero Card */}
-        <View style={styles.heroCard}>
+        <View style={[styles.heroCard, isGoalDone && styles.heroCardCompleted]}>
           <View style={styles.statusRow}>
             <View
               style={[
                 styles.badge,
                 {
-                  backgroundColor:
-                    (goal.isCompleted || (goal.progress != null && goal.progress >= 100))
-                      ? 'rgba(72, 187, 120, 0.2)'
-                      : 'rgba(108, 99, 255, 0.2)',
+                  backgroundColor: isGoalDone
+                    ? 'rgba(72, 187, 120, 0.2)'
+                    : 'rgba(62, 207, 207, 0.2)',
                 },
               ]}
             >
@@ -160,16 +206,11 @@ export default function GoalDetailScreen() {
                 style={[
                   styles.badgeText,
                   {
-                    color:
-                      (goal.isCompleted || (goal.progress != null && goal.progress >= 100))
-                        ? Colors.success
-                        : Colors.primary,
+                    color: isGoalDone ? Colors.success : Colors.secondary,
                   },
                 ]}
               >
-                {(goal.isCompleted || (goal.progress != null && goal.progress >= 100))
-                  ? 'COMPLETED'
-                  : 'IN_PROGRESS'}
+                {isGoalDone ? 'COMPLETED' : 'IN_PROGRESS'}
               </Text>
             </View>
             {goal.targetDate ? (
@@ -188,13 +229,18 @@ export default function GoalDetailScreen() {
           <View style={styles.progressSection}>
             <View style={styles.progressLabelRow}>
               <Text style={styles.progressLabel}>Milestone Completion</Text>
-              <Text style={styles.progressValue}>{goal.progress || 0}%</Text>
+              <Text style={[styles.progressValue, { color: isGoalDone ? Colors.success : Colors.secondary }]}>
+                {goal.progress || 0}%
+              </Text>
             </View>
             <View style={styles.track}>
               <View
                 style={[
                   styles.fill,
-                  { width: `${Math.min(goal.progress || 0, 100)}%` },
+                  {
+                    width: `${Math.min(goal.progress || 0, 100)}%`,
+                    backgroundColor: isGoalDone ? Colors.success : Colors.secondary,
+                  },
                 ]}
               />
             </View>
@@ -255,6 +301,31 @@ export default function GoalDetailScreen() {
           </View>
         )}
 
+        {/* Subtask Filter Pills */}
+        {tasks.length > 0 && (
+          <View style={styles.filterRow}>
+            {[
+              { id: 'ALL', label: 'All', count: tasks.length },
+              { id: 'PENDING', label: 'Pending', count: pendingCount },
+              { id: 'IN_PROGRESS', label: 'In Progress', count: inProgressCount },
+              { id: 'COMPLETED', label: 'Completed', count: completedCount },
+            ].map((f) => (
+              <TouchableOpacity
+                key={f.id}
+                style={[styles.filterPill, taskFilter === f.id && styles.filterPillActive]}
+                onPress={() => setTaskFilter(f.id)}
+              >
+                <Text
+                  style={[styles.filterPillText, taskFilter === f.id && styles.filterPillTextActive]}
+                  numberOfLines={1}
+                >
+                  {f.label} ({f.count})
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+
         {/* Tasks List */}
         {tasks.length === 0 ? (
           <View style={styles.emptyTasksBox}>
@@ -264,30 +335,125 @@ export default function GoalDetailScreen() {
               Tap "Add Task" above to break this goal into actionable steps!
             </Text>
           </View>
+        ) : filteredTasks.length === 0 ? (
+          <View style={styles.emptyTasksBox}>
+            <Ionicons name="checkmark-done-circle-outline" size={32} color={Colors.textMuted} />
+            <Text style={styles.emptyTasksText}>No tasks in this filter</Text>
+          </View>
         ) : (
-          tasks.map((task) => {
+          filteredTasks.map((task) => {
             const isDone = task.status === 'COMPLETED';
+            const isInProgress = task.status === 'IN_PROGRESS';
+            const isPending = task.status === 'PENDING' || !task.status;
+
             return (
-              <TouchableOpacity
+              <View
                 key={task.id}
-                style={styles.taskItem}
-                onPress={() =>
-                  toggleTaskMutation.mutate({
-                    taskId: task.id,
-                    currentStatus: task.status,
-                  })
-                }
-                activeOpacity={0.7}
+                style={[
+                  styles.taskItem,
+                  isDone && styles.taskItemCompleted,
+                  isInProgress && styles.taskItemInProgress,
+                ]}
               >
-                <View style={[styles.taskCheckbox, isDone && styles.taskCheckboxChecked]}>
-                  {isDone && <Ionicons name="checkmark" size={16} color="#FFFFFF" />}
+                {/* Upper: Checkbox + Title + Status Badge */}
+                <View style={styles.taskItemTop}>
+                  <TouchableOpacity
+                    style={[
+                      styles.taskCheckbox,
+                      isDone && styles.taskCheckboxChecked,
+                      isInProgress && styles.taskCheckboxInProgress,
+                    ]}
+                    onPress={() =>
+                      statusMutation.mutate({
+                        taskId: task.id,
+                        newStatus: isDone ? 'PENDING' : 'COMPLETED',
+                      })
+                    }
+                    activeOpacity={0.7}
+                  >
+                    {isDone && <Ionicons name="checkmark" size={16} color="#FFFFFF" />}
+                    {isInProgress && <Ionicons name="play" size={12} color={Colors.secondary} />}
+                  </TouchableOpacity>
+
+                  <Text
+                    style={[
+                      styles.taskTitleText,
+                      isDone && styles.taskTitleTextDone,
+                      isInProgress && styles.taskTitleTextInProgress,
+                    ]}
+                  >
+                    {task.title}
+                  </Text>
+
+                  <View
+                    style={[
+                      styles.statusPill,
+                      { backgroundColor: `${getStatusColor(task.status)}20` },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.statusPillText,
+                        { color: getStatusColor(task.status) },
+                      ]}
+                    >
+                      {task.status || 'PENDING'}
+                    </Text>
+                  </View>
                 </View>
-                <Text
-                  style={[styles.taskTitleText, isDone && styles.taskTitleTextDone]}
-                >
-                  {task.title}
-                </Text>
-              </TouchableOpacity>
+
+                {/* Lower: Quick Status Action Buttons */}
+                <View style={styles.taskItemBottom}>
+                  <View style={styles.statusButtonsRow}>
+                    {!isPending && (
+                      <TouchableOpacity
+                        style={[styles.actionBtn, styles.pendingActionBtn]}
+                        onPress={() =>
+                          statusMutation.mutate({ taskId: task.id, newStatus: 'PENDING' })
+                        }
+                      >
+                        <Text style={styles.pendingActionText}>Pending</Text>
+                      </TouchableOpacity>
+                    )}
+                    {!isInProgress && (
+                      <TouchableOpacity
+                        style={[styles.actionBtn, styles.inProgressActionBtn]}
+                        onPress={() =>
+                          statusMutation.mutate({ taskId: task.id, newStatus: 'IN_PROGRESS' })
+                        }
+                      >
+                        <Text style={styles.inProgressActionText}>In Progress</Text>
+                      </TouchableOpacity>
+                    )}
+                    {!isDone && (
+                      <TouchableOpacity
+                        style={[styles.actionBtn, styles.completeActionBtn]}
+                        onPress={() =>
+                          statusMutation.mutate({ taskId: task.id, newStatus: 'COMPLETED' })
+                        }
+                      >
+                        <Text style={styles.completeActionText}>Complete ✓</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+
+                  <TouchableOpacity
+                    style={styles.deleteBtn}
+                    onPress={() => {
+                      Alert.alert('Delete Task', 'Are you sure you want to delete this task?', [
+                        { text: 'Cancel', style: 'cancel' },
+                        {
+                          text: 'Delete',
+                          style: 'destructive',
+                          onPress: () => deleteTaskMutation.mutate(task.id),
+                        },
+                      ]);
+                    }}
+                  >
+                    <Ionicons name="trash-outline" size={15} color={Colors.textMuted} />
+                  </TouchableOpacity>
+                </View>
+              </View>
             );
           })
         )}
@@ -483,9 +649,37 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 4,
   },
-  taskItem: {
+  heroCardCompleted: {
+    borderColor: 'rgba(72, 187, 120, 0.35)',
+  },
+  filterRow: {
     flexDirection: 'row',
+    backgroundColor: Colors.surface,
+    borderRadius: 12,
+    padding: 4,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  filterPill: {
+    flex: 1,
+    paddingVertical: 8,
     alignItems: 'center',
+    borderRadius: 8,
+  },
+  filterPillActive: {
+    backgroundColor: Colors.surfaceLight,
+  },
+  filterPillText: {
+    color: Colors.textMuted,
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  filterPillTextActive: {
+    color: Colors.secondary,
+    fontWeight: '700',
+  },
+  taskItem: {
     backgroundColor: Colors.surface,
     padding: 14,
     borderRadius: 14,
@@ -493,28 +687,113 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.border,
   },
+  taskItemCompleted: {
+    borderColor: 'rgba(72, 187, 120, 0.35)',
+    backgroundColor: 'rgba(26, 26, 46, 0.7)',
+  },
+  taskItemInProgress: {
+    borderColor: 'rgba(62, 207, 207, 0.4)',
+    backgroundColor: 'rgba(26, 26, 46, 0.95)',
+  },
+  taskItemTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
   taskCheckbox: {
     width: 24,
     height: 24,
     borderRadius: 6,
     borderWidth: 2,
-    borderColor: Colors.secondary,
+    borderColor: Colors.border,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
   },
   taskCheckboxChecked: {
-    backgroundColor: Colors.secondary,
+    backgroundColor: Colors.success,
+    borderColor: Colors.success,
+  },
+  taskCheckboxInProgress: {
+    borderColor: Colors.secondary,
+    backgroundColor: 'rgba(62, 207, 207, 0.1)',
   },
   taskTitleText: {
     flex: 1,
     fontSize: 14,
     color: Colors.text,
     fontWeight: '500',
+    marginRight: 8,
   },
   taskTitleTextDone: {
     textDecorationLine: 'line-through',
     color: Colors.textMuted,
+  },
+  taskTitleTextInProgress: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  statusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  statusPillText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  taskItemBottom: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  statusButtonsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  actionBtn: {
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  pendingActionBtn: {
+    backgroundColor: 'rgba(236, 201, 75, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(236, 201, 75, 0.3)',
+  },
+  pendingActionText: {
+    color: '#ECC94B',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  inProgressActionBtn: {
+    backgroundColor: 'rgba(62, 207, 207, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(62, 207, 207, 0.3)',
+  },
+  inProgressActionText: {
+    color: Colors.secondary,
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  completeActionBtn: {
+    backgroundColor: 'rgba(72, 187, 120, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(72, 187, 120, 0.3)',
+  },
+  completeActionText: {
+    color: Colors.success,
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  deleteBtn: {
+    padding: 6,
   },
   loadingText: {
     color: Colors.textMuted,

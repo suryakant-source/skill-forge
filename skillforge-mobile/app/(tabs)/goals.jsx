@@ -104,7 +104,10 @@ export default function GoalsScreen() {
     });
   };
 
-  const isGoalCompleted = (g) => Boolean(g.isCompleted || (g.progress != null && g.progress >= 100));
+  const isGoalCompleted = (g) => Boolean(g.isCompleted || g.completed || (g.progress != null && g.progress >= 100));
+
+  const completedGoalsCount = goals.filter(isGoalCompleted).length;
+  const inProgressGoalsCount = goals.filter((g) => !isGoalCompleted(g)).length;
 
   const filteredGoals = goals.filter((g) => {
     if (activeFilter === 'ALL') return true;
@@ -131,28 +134,28 @@ export default function GoalsScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Filter Tabs */}
+        {/* Filter Tabs with Counts */}
         <View style={styles.filterRow}>
-          {['ALL', 'IN_PROGRESS', 'COMPLETED'].map((filter) => (
+          {[
+            { id: 'ALL', label: 'All Goals', count: goals.length },
+            { id: 'IN_PROGRESS', label: 'In Progress', count: inProgressGoalsCount },
+            { id: 'COMPLETED', label: 'Completed', count: completedGoalsCount },
+          ].map((tab) => (
             <TouchableOpacity
-              key={filter}
+              key={tab.id}
               style={[
                 styles.filterTab,
-                activeFilter === filter && styles.filterTabActive,
+                activeFilter === tab.id && styles.filterTabActive,
               ]}
-              onPress={() => setActiveFilter(filter)}
+              onPress={() => setActiveFilter(tab.id)}
             >
               <Text
                 style={[
                   styles.filterText,
-                  activeFilter === filter && styles.filterTextActive,
+                  activeFilter === tab.id && styles.filterTextActive,
                 ]}
               >
-                {filter === 'ALL'
-                  ? 'All Goals'
-                  : filter === 'IN_PROGRESS'
-                  ? 'In Progress'
-                  : 'Completed'}
+                {tab.label} ({tab.count})
               </Text>
             </TouchableOpacity>
           ))}
@@ -165,6 +168,11 @@ export default function GoalsScreen() {
           <View style={styles.emptyContainer}>
             <Ionicons name="flag-outline" size={48} color={Colors.textMuted} />
             <Text style={styles.emptyText}>No goals found in this category</Text>
+            <Text style={styles.emptySub}>
+              {activeFilter === 'COMPLETED'
+                ? 'Complete all subtasks of a goal to finish it!'
+                : 'Create a new learning goal to start your journey!'}
+            </Text>
           </View>
         ) : (
           <FlatList
@@ -175,23 +183,33 @@ export default function GoalsScreen() {
             contentContainerStyle={{ paddingBottom: 30 }}
             renderItem={({ item }) => {
               const isDone = isGoalCompleted(item);
+              const completedTasks = item.completedTaskCount != null ? item.completedTaskCount : 0;
+              const totalTasks = item.taskCount != null ? item.taskCount : 0;
+
               return (
                 <TouchableOpacity
-                  style={styles.goalCard}
+                  style={[styles.goalCard, isDone && styles.goalCardCompleted]}
                   onPress={() => router.push(`/goal-detail/${item.id}`)}
                   activeOpacity={0.85}
                 >
                   <View style={styles.cardTopRow}>
-                    <Text style={styles.goalTitle} numberOfLines={1}>
-                      {item.title}
-                    </Text>
+                    <View style={styles.cardHeaderLeft}>
+                      {item.category ? (
+                        <View style={styles.categoryBadge}>
+                          <Text style={styles.categoryBadgeText}>{item.category}</Text>
+                        </View>
+                      ) : null}
+                      <Text style={styles.goalTitle} numberOfLines={1}>
+                        {item.title}
+                      </Text>
+                    </View>
                     <View
                       style={[
                         styles.badge,
                         {
                           backgroundColor: isDone
                             ? 'rgba(72, 187, 120, 0.2)'
-                            : 'rgba(108, 99, 255, 0.2)',
+                            : 'rgba(62, 207, 207, 0.2)',
                         },
                       ]}
                     >
@@ -199,7 +217,7 @@ export default function GoalsScreen() {
                         style={[
                           styles.badgeText,
                           {
-                            color: isDone ? Colors.success : Colors.primary,
+                            color: isDone ? Colors.success : Colors.secondary,
                           },
                         ]}
                       >
@@ -208,26 +226,52 @@ export default function GoalsScreen() {
                     </View>
                   </View>
 
-                {item.description ? (
-                  <Text style={styles.goalDesc} numberOfLines={2}>
-                    {item.description}
-                  </Text>
-                ) : null}
+                  {item.description ? (
+                    <Text style={styles.goalDesc} numberOfLines={2}>
+                      {item.description}
+                    </Text>
+                  ) : null}
 
-                {/* Progress bar */}
-                <View style={styles.progressRow}>
-                  <View style={styles.progressTrack}>
-                    <View
-                      style={[
-                        styles.progressFill,
-                        { width: `${Math.min(item.progress || 0, 100)}%` },
-                      ]}
+                  {/* Task Completion Summary */}
+                  <View style={styles.taskCountRow}>
+                    <Ionicons
+                      name={isDone ? 'checkmark-done-circle' : 'checkbox-outline'}
+                      size={14}
+                      color={isDone ? Colors.success : Colors.secondary}
+                      style={{ marginRight: 6 }}
                     />
+                    <Text style={styles.taskCountText}>
+                      {totalTasks > 0
+                        ? `${completedTasks} of ${totalTasks} tasks completed`
+                        : 'No tasks yet - tap to add'}
+                    </Text>
                   </View>
-                  <Text style={styles.progressVal}>{item.progress || 0}%</Text>
-                </View>
-              </TouchableOpacity>
-            )}
+
+                  {/* Progress bar */}
+                  <View style={styles.progressRow}>
+                    <View style={styles.progressTrack}>
+                      <View
+                        style={[
+                          styles.progressFill,
+                          {
+                            width: `${Math.min(item.progress || 0, 100)}%`,
+                            backgroundColor: isDone ? Colors.success : Colors.secondary,
+                          },
+                        ]}
+                      />
+                    </View>
+                    <Text
+                      style={[
+                        styles.progressVal,
+                        { color: isDone ? Colors.success : Colors.secondary },
+                      ]}
+                    >
+                      {item.progress || 0}%
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            }}
           />
         )}
 
@@ -405,18 +449,49 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.border,
   },
+  goalCardCompleted: {
+    borderColor: 'rgba(72, 187, 120, 0.35)',
+    backgroundColor: 'rgba(26, 26, 46, 0.8)',
+  },
   cardTopRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+  },
+  cardHeaderLeft: {
+    flex: 1,
+    marginRight: 10,
+  },
+  categoryBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    backgroundColor: 'rgba(108, 99, 255, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(108, 99, 255, 0.3)',
+    marginBottom: 4,
+  },
+  categoryBadgeText: {
+    color: Colors.primary,
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  taskCountRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: 10,
+  },
+  taskCountText: {
+    fontSize: 12,
+    color: Colors.textMuted,
+    fontWeight: '600',
   },
   goalTitle: {
     fontSize: 16,
     fontWeight: '700',
     color: Colors.text,
-    flex: 1,
-    marginRight: 10,
   },
   badge: {
     paddingHorizontal: 8,
