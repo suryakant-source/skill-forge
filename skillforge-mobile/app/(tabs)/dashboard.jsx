@@ -265,11 +265,12 @@ export default function DashboardScreen() {
                 </Text>
               </View>
             </TouchableOpacity>
-          ))
-        )}
-      </ScrollView>
-    </SafeAreaView>
-  );
+          );
+        })
+      )}
+    </ScrollView>
+  </SafeAreaView>
+);
 }
 
 const styles = StyleSheet.create({
