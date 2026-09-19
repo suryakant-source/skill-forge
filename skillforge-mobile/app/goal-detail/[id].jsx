@@ -28,8 +28,8 @@ export default function GoalDetailScreen() {
   // Fetch Goal Detail
   const {
     data: goalData,
-    isLoading,
-    refetch,
+    isLoading: goalLoading,
+    refetch: refetchGoal,
   } = useQuery({
     queryKey: ['goal-detail', id],
     queryFn: async () => {
@@ -41,6 +41,22 @@ export default function GoalDetailScreen() {
 
   const goal = goalData?.data || goalData;
 
+  // Fetch Tasks under this Goal
+  const {
+    data: tasks = [],
+    isLoading: tasksLoading,
+    refetch: refetchTasks,
+  } = useQuery({
+    queryKey: ['goal-tasks', id],
+    queryFn: async () => {
+      const res = await axiosInstance.get(`/goals/${id}/tasks`);
+      if (Array.isArray(res)) return res;
+      if (Array.isArray(res?.data)) return res.data;
+      return [];
+    },
+    enabled: !!id,
+  });
+
   // Add Task to Goal Mutation
   const addTaskMutation = useMutation({
     mutationFn: async (taskTitle) => {
@@ -51,6 +67,7 @@ export default function GoalDetailScreen() {
       });
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['goal-tasks', id] });
       queryClient.invalidateQueries({ queryKey: ['goal-detail', id] });
       queryClient.invalidateQueries({ queryKey: ['goals-list'] });
       queryClient.invalidateQueries({ queryKey: ['all-tasks'] });
@@ -75,6 +92,7 @@ export default function GoalDetailScreen() {
       return await axiosInstance.patch(`/tasks/${taskId}/status`, { status: nextStatus });
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['goal-tasks', id] });
       queryClient.invalidateQueries({ queryKey: ['goal-detail', id] });
       queryClient.invalidateQueries({ queryKey: ['goals-list'] });
       queryClient.invalidateQueries({ queryKey: ['all-tasks'] });
@@ -86,6 +104,8 @@ export default function GoalDetailScreen() {
     if (!newTaskTitle.trim()) return;
     addTaskMutation.mutate(newTaskTitle.trim());
   };
+
+  const isLoading = goalLoading;
 
   if (isLoading) {
     return (
@@ -108,7 +128,6 @@ export default function GoalDetailScreen() {
     );
   }
 
-  const tasks = Array.isArray(goal.tasks) ? goal.tasks : [];
   const completedCount = tasks.filter((t) => t.status === 'COMPLETED').length;
 
   return (
