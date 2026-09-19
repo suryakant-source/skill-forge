@@ -1,626 +1,276 @@
-import React, { useState } from 'react';
+﻿/**
+ * goals.jsx - SkillForge Mobile Goals Feed Screen
+ *
+ * Features:
+ *  - Search filter (real-time by title)
+ *  - Horizontal Category Chips (All, Backend, Frontend, ...)
+ *  - FlatList of GoalCards with pull-to-refresh
+ *  - GoalFormModal for Create & Edit
+ *  - Delete with Alert confirmation
+ *  - Floating Action Button (FAB)
+ */
+import React, { useState, useMemo } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  FlatList,
-  TouchableOpacity,
-  Modal,
-  TextInput,
-  ActivityIndicator,
-  Alert,
-  Platform,
-  ScrollView,
+  View, Text, StyleSheet, FlatList, TouchableOpacity,
+  TextInput, ScrollView, Alert, ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import Colors from '../../constants/colors';
-import axiosInstance from '../../api/axiosInstance';
+import { useGoals, useCreateGoal, useUpdateGoal, useDeleteGoal } from '../../hooks/useGoals';
+import GoalCard from '../../components/goals/GoalCard';
+import GoalFormModal from '../../components/goals/GoalFormModal';
+
+// ── Category filter options ──────────────────────────────────────────────────
+const CATEGORY_CHIPS = ['All', 'BACKEND', 'FRONTEND', 'MOBILE', 'DATABASE', 'DEVOPS', 'AI_ML', 'DESIGN', 'OTHER'];
 
 export default function GoalsScreen() {
   const router = useRouter();
-  const queryClient = useQueryClient();
 
-  const [activeFilter, setActiveFilter] = useState('ALL'); // ALL, IN_PROGRESS, COMPLETED
-  const [modalVisible, setModalVisible] = useState(false);
-  const [newTitle, setNewTitle] = useState('');
-  const [newDescription, setNewDescription] = useState('');
-  const [newCategory, setNewCategory] = useState('BACKEND');
-  const [newTargetDays, setNewTargetDays] = useState('30');
-  const [newDailyHours, setNewDailyHours] = useState('2');
+  // ── State ──
+  const [search, setSearch]                 = useState('');
+  const [activeCategory, setActiveCategory] = useState('All');
+  const [modalVisible, setModalVisible]     = useState(false);
+  const [editingGoal, setEditingGoal]       = useState(null); // null = create, obj = edit
 
-  const CATEGORIES = ['BACKEND', 'FRONTEND', 'MOBILE', 'AI_ML', 'DATABASE', 'DEVOPS', 'DESIGN', 'OTHER'];
+  // ── Data ──
+  const { data: goals = [], isLoading, isRefetching, refetch } = useGoals();
+  const createMutation = useCreateGoal();
+  const updateMutation = useUpdateGoal();
+  const deleteMutation = useDeleteGoal();
 
-  // Fetch Goals List
-  const {
-    data: goals = [],
-    isLoading,
-    refetch,
-    isRefetching,
-  } = useQuery({
-    queryKey: ['goals-list'],
-    queryFn: async () => {
-      const res = await axiosInstance.get('/goals');
-      if (Array.isArray(res)) return res;
-      if (Array.isArray(res?.data)) return res.data;
-      return [];
-    },
-  });
-
-  // Create Goal Mutation
-  const createMutation = useMutation({
-    mutationFn: async (payload) => {
-      return await axiosInstance.post('/goals', payload);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['goals-list'] });
-      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
-      queryClient.invalidateQueries({ queryKey: ['dashboard-recent-goals'] });
-      setModalVisible(false);
-      setNewTitle('');
-      setNewDescription('');
-      setNewCategory('BACKEND');
-      setNewTargetDays('30');
-      setNewDailyHours('2');
-    },
-    onError: (err) => {
-      const msg = err.message || 'Failed to create goal';
-      if (Platform.OS !== 'web') {
-        Alert.alert('Error', msg);
-      } else {
-        alert(msg);
-      }
-    },
-  });
-
-  // Delete Goal Mutation
-  const deleteMutation = useMutation({
-    mutationFn: async (goalId) => {
-      return await axiosInstance.delete(`/goals/${goalId}`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['goals-list'] });
-      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
-    },
-  });
-
-  const handleCreate = () => {
-    if (!newTitle.trim()) {
-      alert('Please enter a goal title');
-      return;
+  // ── Filtered goals ──
+  const filteredGoals = useMemo(() => {
+    let list = [...goals];
+    if (activeCategory !== 'All') {
+      list = list.filter((g) => g.category === activeCategory);
     }
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      list = list.filter((g) => g.title?.toLowerCase().includes(q));
+    }
+    return list;
+  }, [goals, activeCategory, search]);
 
-    const days = parseInt(newTargetDays, 10);
-    const hours = parseInt(newDailyHours, 10);
+  // ── Handlers ──
+  const openCreate = () => { setEditingGoal(null); setModalVisible(true); };
+  const openEdit   = (goal) => { setEditingGoal(goal); setModalVisible(true); };
+  const closeModal = () => { setModalVisible(false); setEditingGoal(null); };
 
-    createMutation.mutate({
-      title: newTitle.trim(),
-      description: newDescription.trim() || undefined,
-      category: newCategory || 'BACKEND',
-      targetDays: isNaN(days) ? 30 : Math.max(1, Math.min(days, 365)),
-      dailyHours: isNaN(hours) ? 2 : Math.max(1, Math.min(hours, 24)),
-    });
+  const handleSubmit = (formData) => {
+    if (editingGoal) {
+      updateMutation.mutate(
+        { id: editingGoal.id, data: formData },
+        { onSuccess: closeModal }
+      );
+    } else {
+      createMutation.mutate(formData, { onSuccess: closeModal });
+    }
   };
 
-  const isGoalCompleted = (g) => Boolean(g.isCompleted || g.completed || (g.progress != null && g.progress >= 100));
+  const handleDelete = (goal) => {
+    Alert.alert(
+      'Delete Goal',
+      `Delete "${goal.title}"? This cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete', style: 'destructive',
+          onPress: () => deleteMutation.mutate(goal.id),
+        },
+      ]
+    );
+  };
 
-  const completedGoalsCount = goals.filter(isGoalCompleted).length;
-  const inProgressGoalsCount = goals.filter((g) => !isGoalCompleted(g)).length;
+  const isMutating = createMutation.isPending || updateMutation.isPending;
 
-  const filteredGoals = goals.filter((g) => {
-    if (activeFilter === 'ALL') return true;
-    if (activeFilter === 'COMPLETED') return isGoalCompleted(g);
-    if (activeFilter === 'IN_PROGRESS') return !isGoalCompleted(g);
-    return true;
-  });
+  // ── Empty state ──
+  const ListEmpty = () => (
+    <View style={styles.emptyContainer}>
+      <Ionicons name="flag-outline" size={52} color={Colors.textMuted} />
+      <Text style={styles.emptyTitle}>
+        {search || activeCategory !== 'All' ? 'No matching goals' : 'No Goals Yet'}
+      </Text>
+      <Text style={styles.emptySub}>
+        {search || activeCategory !== 'All'
+          ? 'Try a different search or category'
+          : 'Create your first learning goal to get started!'}
+      </Text>
+      {!search && activeCategory === 'All' && (
+        <TouchableOpacity style={styles.emptyBtn} onPress={openCreate}>
+          <Text style={styles.emptyBtnText}>+ Create First Goal</Text>
+        </TouchableOpacity>
+      )}
+    </View>
+  );
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
-        {/* Header */}
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.title}>Learning Goals</Text>
-            <Text style={styles.subtitle}>Define outcomes and conquer milestones</Text>
-          </View>
-          <TouchableOpacity
-            style={styles.addBtn}
-            onPress={() => setModalVisible(true)}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="add" size={24} color="#FFFFFF" />
-          </TouchableOpacity>
+      {/* ── Header ── */}
+      <View style={styles.header}>
+        <View>
+          <Text style={styles.headerTitle}>My Learning Goals</Text>
+          <Text style={styles.headerSub}>Track & conquer your milestones</Text>
         </View>
-
-        {/* Filter Tabs with Counts */}
-        <View style={styles.filterRow}>
-          {[
-            { id: 'ALL', label: 'All Goals', count: goals.length },
-            { id: 'IN_PROGRESS', label: 'In Progress', count: inProgressGoalsCount },
-            { id: 'COMPLETED', label: 'Completed', count: completedGoalsCount },
-          ].map((tab) => (
-            <TouchableOpacity
-              key={tab.id}
-              style={[
-                styles.filterTab,
-                activeFilter === tab.id && styles.filterTabActive,
-              ]}
-              onPress={() => setActiveFilter(tab.id)}
-            >
-              <Text
-                style={[
-                  styles.filterText,
-                  activeFilter === tab.id && styles.filterTextActive,
-                ]}
-              >
-                {tab.label} ({tab.count})
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {/* Goals List */}
-        {isLoading ? (
-          <ActivityIndicator size="large" color={Colors.primary} style={{ marginTop: 40 }} />
-        ) : filteredGoals.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <Ionicons name="flag-outline" size={48} color={Colors.textMuted} />
-            <Text style={styles.emptyText}>No goals found in this category</Text>
-            <Text style={styles.emptySub}>
-              {activeFilter === 'COMPLETED'
-                ? 'Complete all subtasks of a goal to finish it!'
-                : 'Create a new learning goal to start your journey!'}
-            </Text>
-          </View>
-        ) : (
-          <FlatList
-            data={filteredGoals}
-            keyExtractor={(item) => String(item.id)}
-            refreshing={isRefetching}
-            onRefresh={refetch}
-            contentContainerStyle={{ paddingBottom: 30 }}
-            renderItem={({ item }) => {
-              const isDone = isGoalCompleted(item);
-              const completedTasks = item.completedTaskCount != null ? item.completedTaskCount : 0;
-              const totalTasks = item.taskCount != null ? item.taskCount : 0;
-
-              return (
-                <TouchableOpacity
-                  style={[styles.goalCard, isDone && styles.goalCardCompleted]}
-                  onPress={() => router.push(`/goal-detail/${item.id}`)}
-                  activeOpacity={0.85}
-                >
-                  <View style={styles.cardTopRow}>
-                    <View style={styles.cardHeaderLeft}>
-                      {item.category ? (
-                        <View style={styles.categoryBadge}>
-                          <Text style={styles.categoryBadgeText}>{item.category}</Text>
-                        </View>
-                      ) : null}
-                      <Text style={styles.goalTitle} numberOfLines={1}>
-                        {item.title}
-                      </Text>
-                    </View>
-                    <View
-                      style={[
-                        styles.badge,
-                        {
-                          backgroundColor: isDone
-                            ? 'rgba(72, 187, 120, 0.2)'
-                            : 'rgba(62, 207, 207, 0.2)',
-                        },
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.badgeText,
-                          {
-                            color: isDone ? Colors.success : Colors.secondary,
-                          },
-                        ]}
-                      >
-                        {isDone ? 'COMPLETED' : 'IN_PROGRESS'}
-                      </Text>
-                    </View>
-                  </View>
-
-                  {item.description ? (
-                    <Text style={styles.goalDesc} numberOfLines={2}>
-                      {item.description}
-                    </Text>
-                  ) : null}
-
-                  {/* Task Completion Summary */}
-                  <View style={styles.taskCountRow}>
-                    <Ionicons
-                      name={isDone ? 'checkmark-done-circle' : 'checkbox-outline'}
-                      size={14}
-                      color={isDone ? Colors.success : Colors.secondary}
-                      style={{ marginRight: 6 }}
-                    />
-                    <Text style={styles.taskCountText}>
-                      {totalTasks > 0
-                        ? `${completedTasks} of ${totalTasks} tasks completed`
-                        : 'No tasks yet - tap to add'}
-                    </Text>
-                  </View>
-
-                  {/* Progress bar */}
-                  <View style={styles.progressRow}>
-                    <View style={styles.progressTrack}>
-                      <View
-                        style={[
-                          styles.progressFill,
-                          {
-                            width: `${Math.min(item.progress || 0, 100)}%`,
-                            backgroundColor: isDone ? Colors.success : Colors.secondary,
-                          },
-                        ]}
-                      />
-                    </View>
-                    <Text
-                      style={[
-                        styles.progressVal,
-                        { color: isDone ? Colors.success : Colors.secondary },
-                      ]}
-                    >
-                      {item.progress || 0}%
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              );
-            }}
-          />
-        )}
-
-        {/* Create Goal Modal */}
-        <Modal
-          visible={modalVisible}
-          animationType="slide"
-          transparent={true}
-          onRequestClose={() => setModalVisible(false)}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>New Learning Goal</Text>
-                <TouchableOpacity onPress={() => setModalVisible(false)}>
-                  <Ionicons name="close" size={24} color={Colors.textMuted} />
-                </TouchableOpacity>
-              </View>
-
-              <Text style={styles.inputLabel}>Goal Title *</Text>
-              <TextInput
-                style={styles.textInput}
-                placeholder="e.g. Master Microservices Architecture"
-                placeholderTextColor="#718096"
-                value={newTitle}
-                onChangeText={setNewTitle}
-              />
-
-              <Text style={styles.inputLabel}>Category *</Text>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                style={styles.categoryScroll}
-              >
-                {CATEGORIES.map((cat) => (
-                  <TouchableOpacity
-                    key={cat}
-                    style={[
-                      styles.categoryChip,
-                      newCategory === cat && styles.categoryChipActive,
-                    ]}
-                    onPress={() => setNewCategory(cat)}
-                  >
-                    <Text
-                      style={[
-                        styles.categoryChipText,
-                        newCategory === cat && styles.categoryChipTextActive,
-                      ]}
-                    >
-                      {cat}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-
-              <Text style={styles.inputLabel}>Description</Text>
-              <TextInput
-                style={[styles.textInput, { height: 70, textAlignVertical: 'top' }]}
-                placeholder="Key concepts, frameworks, and milestones..."
-                placeholderTextColor="#718096"
-                value={newDescription}
-                onChangeText={setNewDescription}
-                multiline
-              />
-
-              <View style={styles.inlineInputsRow}>
-                <View style={{ flex: 1, marginRight: 10 }}>
-                  <Text style={styles.inputLabel}>Target Days (1-365) *</Text>
-                  <TextInput
-                    style={styles.textInput}
-                    placeholder="30"
-                    placeholderTextColor="#718096"
-                    value={newTargetDays}
-                    onChangeText={setNewTargetDays}
-                    keyboardType="number-pad"
-                  />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.inputLabel}>Daily Hours (1-24) *</Text>
-                  <TextInput
-                    style={styles.textInput}
-                    placeholder="2"
-                    placeholderTextColor="#718096"
-                    value={newDailyHours}
-                    onChangeText={setNewDailyHours}
-                    keyboardType="number-pad"
-                  />
-                </View>
-              </View>
-
-              <TouchableOpacity
-                style={[styles.saveBtn, createMutation.isPending && { opacity: 0.6 }]}
-                onPress={handleCreate}
-                disabled={createMutation.isPending}
-              >
-                {createMutation.isPending ? (
-                  <ActivityIndicator color="#FFFFFF" size="small" />
-                ) : (
-                  <Text style={styles.saveBtnText}>Create Goal</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-        </Modal>
+        <TouchableOpacity style={styles.newBtn} onPress={openCreate}>
+          <Ionicons name="add" size={18} color="#FFF" />
+          <Text style={styles.newBtnText}>New</Text>
+        </TouchableOpacity>
       </View>
+
+      {/* ── Search Bar ── */}
+      <View style={styles.searchRow}>
+        <Ionicons name="search-outline" size={18} color={Colors.textMuted} style={styles.searchIcon} />
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search goals by keyword..."
+          placeholderTextColor={Colors.textMuted}
+          value={search}
+          onChangeText={setSearch}
+          returnKeyType="search"
+        />
+        {search ? (
+          <TouchableOpacity onPress={() => setSearch('')}>
+            <Ionicons name="close-circle" size={18} color={Colors.textMuted} />
+          </TouchableOpacity>
+        ) : null}
+      </View>
+
+      {/* ── Category Chips ── */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.chipsScroll}
+        contentContainerStyle={styles.chipsContent}
+      >
+        {CATEGORY_CHIPS.map((cat) => (
+          <TouchableOpacity
+            key={cat}
+            style={[styles.chip, activeCategory === cat && styles.chipActive]}
+            onPress={() => setActiveCategory(cat)}
+          >
+            <Text style={[styles.chipText, activeCategory === cat && styles.chipTextActive]}>
+              {cat === 'All' ? '🌐 All' : cat}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+
+      {/* ── Goals FlatList ── */}
+      {isLoading ? (
+        <ActivityIndicator color={Colors.primary} size="large" style={{ marginTop: 60 }} />
+      ) : (
+        <FlatList
+          data={filteredGoals}
+          keyExtractor={(item) => String(item.id)}
+          renderItem={({ item }) => (
+            <GoalCard
+              goal={item}
+              onPress={() => router.push(`/goal-detail/${item.id}`)}
+              onEdit={() => openEdit(item)}
+              onDelete={() => handleDelete(item)}
+            />
+          )}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          refreshing={isRefetching}
+          onRefresh={refetch}
+          ListEmptyComponent={<ListEmpty />}
+        />
+      )}
+
+      {/* ── FAB ── */}
+      <TouchableOpacity style={styles.fab} onPress={openCreate} activeOpacity={0.85}>
+        <Ionicons name="add" size={28} color="#FFF" />
+      </TouchableOpacity>
+
+      {/* ── Create / Edit Modal ── */}
+      <GoalFormModal
+        visible={modalVisible}
+        onClose={closeModal}
+        onSubmit={handleSubmit}
+        initialData={editingGoal}
+        isLoading={isMutating}
+      />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: Colors.background,
-  },
-  container: {
-    flex: 1,
-    padding: 20,
-  },
+  safeArea: { flex: 1, backgroundColor: Colors.background },
+
+  // Header
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
+    flexDirection: 'row', justifyContent: 'space-between',
+    alignItems: 'center', paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12,
   },
-  title: {
-    fontSize: 26,
-    fontWeight: '800',
-    color: Colors.text,
-  },
-  subtitle: {
-    fontSize: 13,
-    color: Colors.textMuted,
-    marginTop: 2,
-  },
-  addBtn: {
+  headerTitle: { color: Colors.text, fontSize: 22, fontWeight: '800' },
+  headerSub: { color: Colors.textMuted, fontSize: 13, marginTop: 2 },
+  newBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
     backgroundColor: Colors.primary,
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
+    paddingHorizontal: 14, paddingVertical: 9, borderRadius: 12,
   },
-  filterRow: {
-    flexDirection: 'row',
+  newBtnText: { color: '#FFF', fontWeight: '700', fontSize: 13 },
+
+  // Search
+  searchRow: {
+    flexDirection: 'row', alignItems: 'center',
     backgroundColor: Colors.surface,
-    borderRadius: 12,
-    padding: 4,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  filterTab: {
-    flex: 1,
-    paddingVertical: 8,
-    alignItems: 'center',
-    borderRadius: 8,
-  },
-  filterTabActive: {
-    backgroundColor: Colors.surfaceLight,
-  },
-  filterText: {
-    color: Colors.textMuted,
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  filterTextActive: {
-    color: Colors.secondary,
-    fontWeight: '700',
-  },
-  goalCard: {
-    backgroundColor: Colors.surface,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  goalCardCompleted: {
-    borderColor: 'rgba(72, 187, 120, 0.35)',
-    backgroundColor: 'rgba(26, 26, 46, 0.8)',
-  },
-  cardTopRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 8,
-  },
-  cardHeaderLeft: {
-    flex: 1,
-    marginRight: 10,
-  },
-  categoryBadge: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-    backgroundColor: 'rgba(108, 99, 255, 0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(108, 99, 255, 0.3)',
-    marginBottom: 4,
-  },
-  categoryBadgeText: {
-    color: Colors.primary,
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  taskCountRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  taskCountText: {
-    fontSize: 12,
-    color: Colors.textMuted,
-    fontWeight: '600',
-  },
-  goalTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: Colors.text,
-  },
-  badge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  badgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  goalDesc: {
-    fontSize: 13,
-    color: Colors.textMuted,
-    marginBottom: 12,
-  },
-  progressRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  progressTrack: {
-    flex: 1,
-    height: 6,
-    backgroundColor: Colors.surfaceLight,
-    borderRadius: 3,
-    overflow: 'hidden',
-    marginRight: 10,
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: Colors.secondary,
-    borderRadius: 3,
-  },
-  progressVal: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: Colors.secondary,
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 60,
-  },
-  emptyText: {
-    color: Colors.textMuted,
-    fontSize: 14,
-    marginTop: 12,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: Colors.surface,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 24,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: Colors.text,
-  },
-  inputLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: Colors.textMuted,
-    marginBottom: 6,
-    marginTop: 10,
-  },
-  textInput: {
-    backgroundColor: Colors.surfaceLight,
-    borderRadius: 12,
+    borderWidth: 1, borderColor: Colors.border,
+    borderRadius: 14, marginHorizontal: 20, marginBottom: 12,
     paddingHorizontal: 14,
-    paddingVertical: 10,
-    color: Colors.text,
-    fontSize: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
   },
-  saveBtn: {
+  searchIcon: { marginRight: 8 },
+  searchInput: {
+    flex: 1, color: Colors.text, fontSize: 14,
+    paddingVertical: 12,
+  },
+
+  // Category chips
+  chipsScroll: { maxHeight: 46, marginBottom: 4 },
+  chipsContent: { paddingHorizontal: 20, gap: 8 },
+  chip: {
+    paddingHorizontal: 14, paddingVertical: 8,
+    borderRadius: 20, borderWidth: 1, borderColor: Colors.border,
+    backgroundColor: Colors.surface,
+  },
+  chipActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  chipText: { color: Colors.textMuted, fontSize: 12, fontWeight: '600' },
+  chipTextActive: { color: '#FFF' },
+
+  // FlatList
+  listContent: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 100 },
+
+  // Empty
+  emptyContainer: {
+    alignItems: 'center', paddingVertical: 60, paddingHorizontal: 30,
+  },
+  emptyTitle: {
+    color: Colors.text, fontSize: 18, fontWeight: '700',
+    marginTop: 16, marginBottom: 8,
+  },
+  emptySub: {
+    color: Colors.textMuted, fontSize: 14,
+    textAlign: 'center', lineHeight: 20, marginBottom: 24,
+  },
+  emptyBtn: {
     backgroundColor: Colors.primary,
-    height: 48,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 22,
+    paddingVertical: 12, paddingHorizontal: 24, borderRadius: 12,
   },
-  saveBtnText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  categoryScroll: {
-    flexDirection: 'row',
-    marginBottom: 8,
-  },
-  categoryChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: Colors.surfaceLight,
-    borderRadius: 8,
-    marginRight: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-  },
-  categoryChipActive: {
-    backgroundColor: 'rgba(108, 99, 255, 0.25)',
-    borderColor: Colors.primary,
-  },
-  categoryChipText: {
-    color: Colors.textMuted,
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  categoryChipTextActive: {
-    color: Colors.primary,
-    fontWeight: '700',
-  },
-  inlineInputsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  emptyBtnText: { color: '#FFF', fontWeight: '700', fontSize: 14 },
+
+  // FAB
+  fab: {
+    position: 'absolute', bottom: 24, right: 24,
+    width: 56, height: 56, borderRadius: 28,
+    backgroundColor: Colors.primary,
+    alignItems: 'center', justifyContent: 'center',
+    elevation: 8,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
   },
 });

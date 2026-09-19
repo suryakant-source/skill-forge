@@ -16,6 +16,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import Colors from '../../constants/colors';
 import axiosInstance from '../../api/axiosInstance';
+import { useGoal, useUpdateGoal, useDeleteGoal } from '../../hooks/useGoals';
+import GoalFormModal from '../../components/goals/GoalFormModal';
 
 export default function GoalDetailScreen() {
   const { id } = useLocalSearchParams();
@@ -24,22 +26,15 @@ export default function GoalDetailScreen() {
 
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [showAddTask, setShowAddTask] = useState(false);
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [taskFilter, setTaskFilter] = useState('ALL');
 
-  // Fetch Goal Detail
-  const {
-    data: goalData,
-    isLoading: goalLoading,
-    refetch: refetchGoal,
-  } = useQuery({
-    queryKey: ['goal-detail', id],
-    queryFn: async () => {
-      const res = await axiosInstance.get(`/goals/${id}`);
-      return res?.data || res;
-    },
-    enabled: !!id,
-  });
+  // Fetch Goal using useGoal hook
+  const { data: goal, isLoading: goalLoading } = useGoal(id);
 
-  const goal = goalData?.data || goalData;
+  // Update & Delete mutations
+  const updateMutation = useUpdateGoal();
+  const deleteMutation = useDeleteGoal();
 
   // Fetch Tasks under this Goal
   const {
@@ -180,14 +175,36 @@ export default function GoalDetailScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.container}>
-        {/* Top Bar with Back Button */}
+        {/* Top Bar with Back Button + Edit/Delete Actions */}
         <View style={styles.topBar}>
           <TouchableOpacity style={styles.iconButton} onPress={() => router.back()}>
             <Ionicons name="arrow-back" size={22} color={Colors.text} />
           </TouchableOpacity>
           <Text style={styles.topBarTitle}>Goal Details</Text>
-          <View style={{ width: 40 }} />
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <TouchableOpacity
+              style={[styles.iconButton, { backgroundColor: 'rgba(108,99,255,0.12)' }]}
+              onPress={() => setEditModalVisible(true)}
+            >
+              <Ionicons name="pencil-outline" size={18} color={Colors.primary} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.iconButton, { backgroundColor: 'rgba(252,129,129,0.1)' }]}
+              onPress={() => {
+                Alert.alert('Delete Goal', `Delete "${goal.title}"?`, [
+                  { text: 'Cancel', style: 'cancel' },
+                  {
+                    text: 'Delete', style: 'destructive',
+                    onPress: () => deleteMutation.mutate(goal.id, { onSuccess: () => router.back() }),
+                  },
+                ]);
+              }}
+            >
+              <Ionicons name="trash-outline" size={18} color={Colors.error} />
+            </TouchableOpacity>
+          </View>
         </View>
+
 
         {/* Goal Hero Card */}
         <View style={[styles.heroCard, isGoalDone && styles.heroCardCompleted]}>
@@ -458,6 +475,26 @@ export default function GoalDetailScreen() {
           })
         )}
       </ScrollView>
+
+      {/* ── Edit Goal Modal ── */}
+      <GoalFormModal
+        visible={editModalVisible}
+        onClose={() => setEditModalVisible(false)}
+        onSubmit={(formData) => {
+          updateMutation.mutate(
+            { id: goal.id, data: formData },
+            {
+              onSuccess: () => {
+                setEditModalVisible(false);
+                queryClient.invalidateQueries({ queryKey: ['goals', String(id)] });
+                queryClient.invalidateQueries({ queryKey: ['goals'] });
+              },
+            }
+          );
+        }}
+        initialData={goal}
+        isLoading={updateMutation.isPending}
+      />
     </SafeAreaView>
   );
 }
