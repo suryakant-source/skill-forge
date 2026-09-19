@@ -43,18 +43,21 @@ export default function SignupScreen() {
     setErrorMessage('');
 
     try {
-      const response = await axiosInstance.post('/auth/register', {
+      const response = await axiosInstance.post('/auth/signup', {
         name: name.trim(),
         email: email.trim(),
         password: password,
+        confirmPassword: password,
       });
 
-      const token = response.token || response.accessToken;
-      const user = response.user || {
-        id: response.id,
-        email: response.email,
-        name: response.name,
-        role: response.role,
+      // Backend returns ApiResponse: { success: true, message: '...', data: { token, id, name, email, role } }
+      const payload = response?.data || response;
+      const token = payload?.token || payload?.accessToken || response?.token;
+      const user = payload?.user || {
+        id: payload?.id,
+        email: payload?.email,
+        name: payload?.name,
+        role: payload?.role,
       };
 
       if (!token) {

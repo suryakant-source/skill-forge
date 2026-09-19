@@ -26,7 +26,11 @@ export default function GoalsScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newDescription, setNewDescription] = useState('');
-  const [newTargetDate, setNewTargetDate] = useState('');
+  const [newCategory, setNewCategory] = useState('BACKEND');
+  const [newTargetDays, setNewTargetDays] = useState('30');
+  const [newDailyHours, setNewDailyHours] = useState('2');
+
+  const CATEGORIES = ['BACKEND', 'FRONTEND', 'MOBILE', 'AI_ML', 'DATABASE', 'DEVOPS', 'DESIGN', 'OTHER'];
 
   // Fetch Goals List
   const {
@@ -54,7 +58,9 @@ export default function GoalsScreen() {
       setModalVisible(false);
       setNewTitle('');
       setNewDescription('');
-      setNewTargetDate('');
+      setNewCategory('BACKEND');
+      setNewTargetDays('30');
+      setNewDailyHours('2');
     },
     onError: (err) => {
       const msg = err.message || 'Failed to create goal';
@@ -83,12 +89,15 @@ export default function GoalsScreen() {
       return;
     }
 
+    const days = parseInt(newTargetDays, 10);
+    const hours = parseInt(newDailyHours, 10);
+
     createMutation.mutate({
       title: newTitle.trim(),
-      description: newDescription.trim(),
-      targetDate: newTargetDate.trim() || null,
-      status: 'IN_PROGRESS',
-      progress: 0,
+      description: newDescription.trim() || undefined,
+      category: newCategory || 'BACKEND',
+      targetDays: isNaN(days) ? 30 : Math.max(1, Math.min(days, 365)),
+      dailyHours: isNaN(hours) ? 2 : Math.max(1, Math.min(hours, 24)),
     });
   };
 
@@ -242,9 +251,36 @@ export default function GoalsScreen() {
                 onChangeText={setNewTitle}
               />
 
+              <Text style={styles.inputLabel}>Category *</Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.categoryScroll}
+              >
+                {CATEGORIES.map((cat) => (
+                  <TouchableOpacity
+                    key={cat}
+                    style={[
+                      styles.categoryChip,
+                      newCategory === cat && styles.categoryChipActive,
+                    ]}
+                    onPress={() => setNewCategory(cat)}
+                  >
+                    <Text
+                      style={[
+                        styles.categoryChipText,
+                        newCategory === cat && styles.categoryChipTextActive,
+                      ]}
+                    >
+                      {cat}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+
               <Text style={styles.inputLabel}>Description</Text>
               <TextInput
-                style={[styles.textInput, { height: 80, textAlignVertical: 'top' }]}
+                style={[styles.textInput, { height: 70, textAlignVertical: 'top' }]}
                 placeholder="Key concepts, frameworks, and milestones..."
                 placeholderTextColor="#718096"
                 value={newDescription}
@@ -252,14 +288,30 @@ export default function GoalsScreen() {
                 multiline
               />
 
-              <Text style={styles.inputLabel}>Target Date (YYYY-MM-DD)</Text>
-              <TextInput
-                style={styles.textInput}
-                placeholder="e.g. 2026-12-31"
-                placeholderTextColor="#718096"
-                value={newTargetDate}
-                onChangeText={setNewTargetDate}
-              />
+              <View style={styles.inlineInputsRow}>
+                <View style={{ flex: 1, marginRight: 10 }}>
+                  <Text style={styles.inputLabel}>Target Days (1-365) *</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    placeholder="30"
+                    placeholderTextColor="#718096"
+                    value={newTargetDays}
+                    onChangeText={setNewTargetDays}
+                    keyboardType="number-pad"
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.inputLabel}>Daily Hours (1-24) *</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    placeholder="2"
+                    placeholderTextColor="#718096"
+                    value={newDailyHours}
+                    onChangeText={setNewDailyHours}
+                    keyboardType="number-pad"
+                  />
+                </View>
+              </View>
 
               <TouchableOpacity
                 style={[styles.saveBtn, createMutation.isPending && { opacity: 0.6 }]}
@@ -460,5 +512,35 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '700',
+  },
+  categoryScroll: {
+    flexDirection: 'row',
+    marginBottom: 8,
+  },
+  categoryChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: Colors.surfaceLight,
+    borderRadius: 8,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  categoryChipActive: {
+    backgroundColor: 'rgba(108, 99, 255, 0.25)',
+    borderColor: Colors.primary,
+  },
+  categoryChipText: {
+    color: Colors.textMuted,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  categoryChipTextActive: {
+    color: Colors.primary,
+    fontWeight: '700',
+  },
+  inlineInputsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
   },
 });
