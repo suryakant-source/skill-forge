@@ -30,11 +30,12 @@ export default function DashboardScreen() {
     queryKey: ['dashboard-stats'],
     queryFn: async () => {
       try {
-        return await axiosInstance.get('/dashboard/stats');
+        const statsRes = await axiosInstance.get('/dashboard/stats');
+        return statsRes?.data || statsRes;
       } catch (e) {
         // Fallback calculation if stats endpoint is not defined
         const goals = await axiosInstance.get('/goals');
-        const list = Array.isArray(goals) ? goals : [];
+        const list = Array.isArray(goals) ? goals : (Array.isArray(goals?.data) ? goals.data : []);
         const totalGoals = list.length;
         const completedGoals = list.filter((g) => g.status === 'COMPLETED').length;
         const inProgressGoals = list.filter((g) => g.status === 'IN_PROGRESS').length;
@@ -53,7 +54,8 @@ export default function DashboardScreen() {
     queryKey: ['dashboard-recent-goals'],
     queryFn: async () => {
       const res = await axiosInstance.get('/goals');
-      return Array.isArray(res) ? res.slice(0, 3) : [];
+      const list = Array.isArray(res) ? res : (Array.isArray(res?.data) ? res.data : []);
+      return list.slice(0, 3);
     },
   });
 

@@ -30,17 +30,16 @@ export default function TasksScreen() {
     queryFn: async () => {
       try {
         const res = await axiosInstance.get('/tasks');
-        return Array.isArray(res) ? res : [];
+        const list = Array.isArray(res) ? res : (Array.isArray(res?.data) ? res.data : []);
+        return list;
       } catch (err) {
         // Fallback: If no direct /tasks endpoint, gather tasks from goals
-        const goals = await axiosInstance.get('/goals');
+        const goalsRes = await axiosInstance.get('/goals');
+        const goals = Array.isArray(goalsRes) ? goalsRes : (Array.isArray(goalsRes?.data) ? goalsRes.data : []);
         const all = [];
-        if (Array.isArray(goals)) {
-          for (const g of goals) {
-            if (Array.isArray(g.tasks)) {
-              g.tasks.forEach((t) => all.push({ ...t, goalTitle: g.title, goalId: g.id }));
-            }
-          }
+        for (const g of goals) {
+          const goalTasks = Array.isArray(g.tasks) ? g.tasks : [];
+          goalTasks.forEach((t) => all.push({ ...t, goalTitle: g.title, goalId: g.id }));
         }
         return all;
       }

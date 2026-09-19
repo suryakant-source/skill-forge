@@ -27,16 +27,19 @@ export default function GoalDetailScreen() {
 
   // Fetch Goal Detail
   const {
-    data: goal,
+    data: goalData,
     isLoading,
     refetch,
   } = useQuery({
     queryKey: ['goal-detail', id],
     queryFn: async () => {
-      return await axiosInstance.get(`/goals/${id}`);
+      const res = await axiosInstance.get(`/goals/${id}`);
+      return res?.data || res;
     },
     enabled: !!id,
   });
+
+  const goal = goalData?.data || goalData;
 
   // Add Task to Goal Mutation
   const addTaskMutation = useMutation({

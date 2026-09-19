@@ -42,8 +42,10 @@ export default function GoalsScreen() {
   } = useQuery({
     queryKey: ['goals-list'],
     queryFn: async () => {
-      const data = await axiosInstance.get('/goals');
-      return Array.isArray(data) ? data : [];
+      const res = await axiosInstance.get('/goals');
+      if (Array.isArray(res)) return res;
+      if (Array.isArray(res?.data)) return res.data;
+      return [];
     },
   });
 
