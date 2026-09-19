@@ -37,8 +37,9 @@ export default function DashboardScreen() {
         const goals = await axiosInstance.get('/goals');
         const list = Array.isArray(goals) ? goals : (Array.isArray(goals?.data) ? goals.data : []);
         const totalGoals = list.length;
-        const completedGoals = list.filter((g) => g.status === 'COMPLETED').length;
-        const inProgressGoals = list.filter((g) => g.status === 'IN_PROGRESS').length;
+        const isGoalDone = (g) => Boolean(g.isCompleted || (g.progress != null && g.progress >= 100));
+        const completedGoals = list.filter(isGoalDone).length;
+        const inProgressGoals = list.filter((g) => !isGoalDone(g)).length;
         return {
           totalGoals,
           completedGoals,
@@ -192,41 +193,41 @@ export default function DashboardScreen() {
             </TouchableOpacity>
           </View>
         ) : (
-          goals.map((item) => (
-            <TouchableOpacity
-              key={item.id}
-              style={styles.goalCard}
-              onPress={() => router.push(`/goal-detail/${item.id}`)}
-              activeOpacity={0.8}
-            >
-              <View style={styles.goalHeaderRow}>
-                <Text style={styles.goalTitle} numberOfLines={1}>
-                  {item.title}
-                </Text>
-                <View
-                  style={[
-                    styles.statusBadge,
-                    {
-                      backgroundColor:
-                        item.status === 'COMPLETED'
+          goals.map((item) => {
+            const isDone = Boolean(item.isCompleted || (item.progress != null && item.progress >= 100));
+            return (
+              <TouchableOpacity
+                key={item.id}
+                style={styles.goalCard}
+                onPress={() => router.push(`/goal-detail/${item.id}`)}
+                activeOpacity={0.8}
+              >
+                <View style={styles.goalHeaderRow}>
+                  <Text style={styles.goalTitle} numberOfLines={1}>
+                    {item.title}
+                  </Text>
+                  <View
+                    style={[
+                      styles.statusBadge,
+                      {
+                        backgroundColor: isDone
                           ? 'rgba(72, 187, 120, 0.2)'
                           : 'rgba(108, 99, 255, 0.2)',
-                    },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.statusText,
-                      {
-                        color:
-                          item.status === 'COMPLETED' ? Colors.success : Colors.primary,
                       },
                     ]}
                   >
-                    {item.status || 'IN_PROGRESS'}
-                  </Text>
+                    <Text
+                      style={[
+                        styles.statusText,
+                        {
+                          color: isDone ? Colors.success : Colors.primary,
+                        },
+                      ]}
+                    >
+                      {isDone ? 'COMPLETED' : 'IN_PROGRESS'}
+                    </Text>
+                  </View>
                 </View>
-              </View>
 
               <Text style={styles.goalDesc} numberOfLines={2}>
                 {item.description || 'No description provided'}

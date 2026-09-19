@@ -150,7 +150,7 @@ export default function GoalDetailScreen() {
                 styles.badge,
                 {
                   backgroundColor:
-                    goal.status === 'COMPLETED'
+                    (goal.isCompleted || (goal.progress != null && goal.progress >= 100))
                       ? 'rgba(72, 187, 120, 0.2)'
                       : 'rgba(108, 99, 255, 0.2)',
                 },
@@ -161,11 +161,15 @@ export default function GoalDetailScreen() {
                   styles.badgeText,
                   {
                     color:
-                      goal.status === 'COMPLETED' ? Colors.success : Colors.primary,
+                      (goal.isCompleted || (goal.progress != null && goal.progress >= 100))
+                        ? Colors.success
+                        : Colors.primary,
                   },
                 ]}
               >
-                {goal.status || 'IN_PROGRESS'}
+                {(goal.isCompleted || (goal.progress != null && goal.progress >= 100))
+                  ? 'COMPLETED'
+                  : 'IN_PROGRESS'}
               </Text>
             </View>
             {goal.targetDate ? (

@@ -29,19 +29,22 @@ export default function TasksScreen() {
     queryKey: ['all-tasks'],
     queryFn: async () => {
       try {
-        const res = await axiosInstance.get('/tasks');
-        const list = Array.isArray(res) ? res : (Array.isArray(res?.data) ? res.data : []);
-        return list;
-      } catch (err) {
-        // Fallback: If no direct /tasks endpoint, gather tasks from goals
         const goalsRes = await axiosInstance.get('/goals');
         const goals = Array.isArray(goalsRes) ? goalsRes : (Array.isArray(goalsRes?.data) ? goalsRes.data : []);
-        const all = [];
-        for (const g of goals) {
-          const goalTasks = Array.isArray(g.tasks) ? g.tasks : [];
-          goalTasks.forEach((t) => all.push({ ...t, goalTitle: g.title, goalId: g.id }));
-        }
-        return all;
+        const tasksPromises = goals.map(async (g) => {
+          try {
+            const tRes = await axiosInstance.get(`/goals/${g.id}/tasks`);
+            const tList = Array.isArray(tRes) ? tRes : (Array.isArray(tRes?.data) ? tRes.data : []);
+            return tList.map((t) => ({ ...t, goalTitle: g.title, goalId: g.id }));
+          } catch {
+            return [];
+          }
+        });
+        const results = await Promise.all(tasksPromises);
+        return results.flat();
+      } catch (err) {
+        console.error('[Tasks] Error fetching tasks:', err);
+        return [];
       }
     },
   });

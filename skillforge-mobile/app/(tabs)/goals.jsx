@@ -104,9 +104,13 @@ export default function GoalsScreen() {
     });
   };
 
+  const isGoalCompleted = (g) => Boolean(g.isCompleted || (g.progress != null && g.progress >= 100));
+
   const filteredGoals = goals.filter((g) => {
     if (activeFilter === 'ALL') return true;
-    return g.status === activeFilter;
+    if (activeFilter === 'COMPLETED') return isGoalCompleted(g);
+    if (activeFilter === 'IN_PROGRESS') return !isGoalCompleted(g);
+    return true;
   });
 
   return (
@@ -169,42 +173,40 @@ export default function GoalsScreen() {
             refreshing={isRefetching}
             onRefresh={refetch}
             contentContainerStyle={{ paddingBottom: 30 }}
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                style={styles.goalCard}
-                onPress={() => router.push(`/goal-detail/${item.id}`)}
-                activeOpacity={0.85}
-              >
-                <View style={styles.cardTopRow}>
-                  <Text style={styles.goalTitle} numberOfLines={1}>
-                    {item.title}
-                  </Text>
-                  <View
-                    style={[
-                      styles.badge,
-                      {
-                        backgroundColor:
-                          item.status === 'COMPLETED'
+            renderItem={({ item }) => {
+              const isDone = isGoalCompleted(item);
+              return (
+                <TouchableOpacity
+                  style={styles.goalCard}
+                  onPress={() => router.push(`/goal-detail/${item.id}`)}
+                  activeOpacity={0.85}
+                >
+                  <View style={styles.cardTopRow}>
+                    <Text style={styles.goalTitle} numberOfLines={1}>
+                      {item.title}
+                    </Text>
+                    <View
+                      style={[
+                        styles.badge,
+                        {
+                          backgroundColor: isDone
                             ? 'rgba(72, 187, 120, 0.2)'
                             : 'rgba(108, 99, 255, 0.2)',
-                      },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.badgeText,
-                        {
-                          color:
-                            item.status === 'COMPLETED'
-                              ? Colors.success
-                              : Colors.primary,
                         },
                       ]}
                     >
-                      {item.status || 'IN_PROGRESS'}
-                    </Text>
+                      <Text
+                        style={[
+                          styles.badgeText,
+                          {
+                            color: isDone ? Colors.success : Colors.primary,
+                          },
+                        ]}
+                      >
+                        {isDone ? 'COMPLETED' : 'IN_PROGRESS'}
+                      </Text>
+                    </View>
                   </View>
-                </View>
 
                 {item.description ? (
                   <Text style={styles.goalDesc} numberOfLines={2}>
